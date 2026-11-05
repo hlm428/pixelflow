@@ -47,8 +47,10 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
       setShotId(defaultShotId ?? (shots[0]?.id ?? ''));
       setBusy(false);
       setProgress('');
+      // 关键：本页此前没加载过提示词库，不加载的话弹窗只能显示原始描述句
+      if (currentProjectId) void usePromptStore.getState().load(currentProjectId);
     }
-  }, [open, defaultShotId, shots]);
+  }, [open, defaultShotId, shots, currentProjectId]);
 
   const shot = shots.find((s) => s.id === shotId) ?? null;
   const latestPrompt = shot ? (byShot(shot.id).slice(-1)[0] ?? null) : null;

@@ -77,27 +77,47 @@ function chunkAtPunctuation(text: string, size: number): string[] {
   return parts;
 }
 
+/** 碎片判定：以逗号类标点结尾（句子未完）且去掉标点后少于 4 个字，如「清晨，」「深夜，」 */
+function isFragment(clause: string): boolean {
+  return /[，,、：:]$/.test(clause) && clause.replace(/[，,、：:。！？；;…\s]/g, '').length < 4;
+}
+
 /**
- * 把故事切成叙事单元（三级降级）：
- * ① 按句号/问叹号/分号切 → ② 只有一整句时按逗号/顿号切 → ③ 还不够就按 ~36 字在标点处硬切
+ * 把故事切成叙事单元（多级切分 + 碎片合并）：
+ * ① 句子级（。！？；…）→ ② 每句再按逗号/顿号/冒号降到分句级 → ③ 不到 4 字的碎片并入下一分句
+ * 保证「清晨，」这类时间词不会单独成镜，多句+逗号混合的故事每个情节都能拆出来。
  */
 export function splitStoryUnits(story: string): string[] {
   const clean = story.replace(/\s+/g, ' ').trim();
   if (!clean) return [];
-  let units = clean
+  const sentences = clean
     .split(/(?<=[。！？!?；;…])\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (units.length <= 1) {
-    units = clean
-      .split(/(?<=[，,、：:])\s*/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
+  let units = sentences.flatMap((s) =>
+    s
+      .split(/(?<=[，,、：:])/)
+      .map((t) => t.trim())
+      .filter(Boolean),
+  );
   if (units.length <= 1 && clean.length > 36) {
     units = chunkAtPunctuation(clean, 36);
   }
-  return units;
+  // 碎片合并：碎片开头的分句并入下一条
+  const merged: string[] = [];
+  for (const u of units) {
+    if (merged.length > 0 && isFragment(merged[merged.length - 1])) {
+      merged[merged.length - 1] = merged[merged.length - 1] + u;
+    } else {
+      merged.push(u);
+    }
+  }
+  // 结尾碎片并入前一条
+  if (merged.length > 1 && isFragment(merged[merged.length - 1])) {
+    const tail = merged.pop() as string;
+    merged[merged.length - 1] += tail;
+  }
+  return merged.filter(Boolean);
 }
 
 /** 从情节文本里猜光线（对齐柑橘 6 镜提示词的光线写法） */

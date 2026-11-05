@@ -81,6 +81,22 @@ describe('splitStoryUnits 叙事单元三级切分', () => {
     expect(u[0]).toContain('雨天');
   });
 
+  it('多句+逗号混合：逗号也参与切分，5 个情节不再被压进一镜', () => {
+    const story =
+      '清晨，短发女生在校门口分伞，把伞递给淋雨的长发女生。傍晚，两人在便利店买橘子汽水，走到河边看日落。';
+    const u = splitStoryUnits(story);
+    expect(u.length).toBeGreaterThanOrEqual(4);
+    // 碎片「清晨，」必须并进下一条，不能单独成镜
+    expect(u.every((x) => x.replace(/[，,、：:。！？；;…\s]/g, '').length >= 4)).toBe(true);
+    expect(u[0]).toContain('清晨');
+  });
+
+  it('碎片词合并：「深夜，」这类时间词不单独成镜', () => {
+    const u = splitStoryUnits('深夜，面馆还亮着灯。老板煮了最后一碗面。');
+    expect(u[0]).toContain('深夜');
+    expect(u[0].length).toBeGreaterThan(6);
+  });
+
   it('连逗号都没有的超长段 → 长度级切分', () => {
     const long = '这是一个没有任何标点符号的超长故事需要靠长度来切分它讲述了一个女孩在雨夜里走过整条商店街的故事';
     const u = splitStoryUnits(long);

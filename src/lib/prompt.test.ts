@@ -159,6 +159,28 @@ describe('buildPrompt 生成公式', () => {
     expect(content).toContain('【光线】雨夜霓虹湿路反光');
   });
 
+  it('光线兜底链：画面是便利店 → 便利店暖白光（不套风格暖光默认）', () => {
+    const content = buildPrompt({
+      project,
+      shotIndex: 1,
+      visualContent: '便利店冷白灯光下，小雪从冰柜拿出两瓶橘子汽水',
+      camera: '',
+      characterCards: [],
+    });
+    expect(content).toContain('【光线】便利店暖白室内光');
+  });
+
+  it('光线兜底链：雨夜画面 → 冷光', () => {
+    const content = buildPrompt({
+      project,
+      shotIndex: 1,
+      visualContent: '雨夜校门口，短发女生撑伞站着',
+      camera: '',
+      characterCards: [],
+    });
+    expect(content).toContain('【光线】雨天柔和冷光');
+  });
+
   it('接力句中英双语并标上一镜编号', () => {
     const content = buildPrompt({
       project,

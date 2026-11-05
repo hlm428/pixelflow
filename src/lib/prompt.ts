@@ -1,5 +1,6 @@
 import type { Project, ProjectStyle, CharacterEra } from '../types/project';
 import type { CharacterCard } from '../types/character';
+import { lightFromText } from './shot';
 
 /** 视觉锁定硬规则（英文，源自风格圣经，逐字带入每条提示词） */
 export const VISUAL_RULES_EN =
@@ -14,14 +15,16 @@ export const STYLE_WORDS: Record<ProjectStyle, string> = {
   吉卜力风: 'hand-drawn anime style, warm watercolor backgrounds, ghibli-inspired warmth',
 };
 
-/** 没填光线时按项目风格给默认光线 */
-export function defaultLightFor(style: ProjectStyle): string {
+/** 没填光线时的兜底：先从画面文本猜（便利店→暖白光、雨→冷光），猜不出再按风格给中性默认 */
+export function defaultLightFor(style: ProjectStyle, visualContent = ''): string {
+  const guessed = lightFromText(visualContent);
+  if (guessed) return guessed;
   const map: Record<ProjectStyle, string> = {
-    动漫: '柔和均匀的暖光，画面干净透亮',
+    动漫: '柔和均匀的光，画面干净透亮',
     写实: '自然环境光，真实色温',
     赛璐璐: '平光为主，色块干净',
     电影感: '电影级柔主光，暗部有层次',
-    吉卜力风: '手绘感暖阳，柔和高光',
+    吉卜力风: '手绘感阳光，柔和高光',
   };
   return map[style];
 }
@@ -86,7 +89,8 @@ export function buildPrompt(input: BuildPromptInput): string {
   parts.push(`【视觉锁定】${STYLE_WORDS[input.project.style]}, ${VISUAL_RULES_EN}`);
   if (input.visualContent.trim()) parts.push(`【场景】${input.visualContent.trim()}`);
   if (input.camera.trim()) parts.push(`【运镜】${input.camera.trim()}`);
-  const light = (input.light && input.light.trim()) || defaultLightFor(input.project.style);
+  const light =
+    (input.light && input.light.trim()) || defaultLightFor(input.project.style, input.visualContent);
   if (light) parts.push(`【光线】${light}`);
   if (input.extraWords && input.extraWords.trim()) parts.push(`【补充】${input.extraWords.trim()}`);
   const relay = relaySentence(input.shotIndex);

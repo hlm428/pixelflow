@@ -2,11 +2,15 @@ import { projectsRepo, shotsRepo, charactersRepo, promptsRepo, templatesRepo, cl
 import { buildSeedBundle } from '../data/seedProjects';
 import { SEED_TEMPLATES } from '../data/templates';
 
-const SEED_FLAG = 'pixelflow-seeded-v2';
+/** 种子数据版本：版本变化时自动把同名示例项目重灌成新格式（用户自建项目不动） */
+const SEED_FLAG = 'pixelflow-seeded';
+const SEED_VERSION = '3';
 
-/** 首次启动：库为空时灌入 5 个示例项目 + 模板种子（只跑一次） */
+/** 首次启动或种子版本升级：灌入/重灌 5 个示例项目 + 模板种子 */
 export async function seedIfNeeded(): Promise<void> {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(SEED_FLAG) === '1') return;
+  const current =
+    typeof localStorage !== 'undefined' ? localStorage.getItem(SEED_FLAG) : null;
+  if (current === SEED_VERSION) return;
 
   const [existingProjects, existingTemplates] = await Promise.all([
     projectsRepo.list(),
@@ -15,6 +19,9 @@ export async function seedIfNeeded(): Promise<void> {
 
   if (existingProjects.length === 0) {
     await insertSeedBundle();
+  } else {
+    // 老数据升级：同名示例项目整个换成新格式（分镜带光线、提示词带编号接力）
+    await reseedDemoProjects();
   }
 
   if (existingTemplates.length === 0) {
@@ -22,7 +29,7 @@ export async function seedIfNeeded(): Promise<void> {
   }
 
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(SEED_FLAG, '1');
+    localStorage.setItem(SEED_FLAG, SEED_VERSION);
   }
 }
 
