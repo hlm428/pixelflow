@@ -110,7 +110,7 @@ export default function Clips() {
             <option value="全部">全部分镜</option>
             {shots.map((s) => (
               <option key={s.id} value={s.id}>
-                #{s.index} · {s.description.slice(0, 14)}
+                #{s.index} · {(s.description ?? "").slice(0, 14)}
               </option>
             ))}
           </select>

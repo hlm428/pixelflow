@@ -105,7 +105,7 @@ export default function ClipUpload({
             <option value="">选择分镜…</option>
             {shots.map((s) => (
               <option key={s.id} value={s.id}>
-                #{s.index} {s.startTime}s · {s.description.slice(0, 24)}
+                #{s.index} {s.startTime}s · {(s.description ?? "").slice(0, 24)}
               </option>
             ))}
           </select>

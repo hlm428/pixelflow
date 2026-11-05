@@ -4,7 +4,7 @@ import { SEED_TEMPLATES } from '../data/templates';
 
 /** 种子数据版本：版本变化时自动把同名示例项目重灌成新格式（用户自建项目不动） */
 const SEED_FLAG = 'pixelflow-seeded';
-const SEED_VERSION = '3';
+const SEED_VERSION = '4';
 
 /** 首次启动或种子版本升级：灌入/重灌 5 个示例项目 + 模板种子 */
 export async function seedIfNeeded(): Promise<void> {
