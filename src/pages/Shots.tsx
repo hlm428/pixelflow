@@ -7,7 +7,7 @@ import { useShotStore } from '../store/shotStore';
 import { usePromptStore } from '../store/promptStore';
 import { charactersRepo, clipsRepo, qcReportsRepo, promptsRepo, dubbingsRepo } from '../lib/db';
 import { takeProjectSnapshot, restoreProjectSnapshot, type ProjectSnapshot } from '../lib/backup';
-import { planShotCount, splitStoryToShots, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
+import { planShotCount, splitStoryToShots, splitStoryUnits, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
 import { SHOT_STATUSES, type Shot, type ShotStatus } from '../types/shot';
 import type { Clip } from '../types/clip';
 import type { QCReport } from '../types/qc';
@@ -96,6 +96,9 @@ export default function Shots() {
   const detailShot = shots.find((s) => s.id === detailId) ?? null;
   const shotLen = project.shotLength ?? SHOT_LENGTH_DEFAULT;
   const planCount = planShotCount(project.targetDuration, shotLen);
+  // 实时检测故事里的情节数，拆分数量以它为准（文字和实际严格一致）
+  const unitCount = useMemo(() => splitStoryUnits(story).length, [story]);
+  const willSplitCount = story.trim() ? Math.min(unitCount, planCount) : Math.min(planCount, 6);
 
   const doSplit = async () => {
     const text = story.trim();
@@ -222,7 +225,11 @@ export default function Shots() {
           placeholder="一句话故事：例：雨天校门口，短发女生把伞分一半给长发女生；便利店买橘子汽水；河边日落碰杯；一张纸条写着明天见。"
         />
         <p className="mt-1.5 text-xs text-zinc-400">
-          按<strong>情节语义</strong>拆分（句号 → 逗号 → 长度三级切分），每段分镜自动带画面描述、运镜和<strong>完整提示词</strong>，出现角色名自动关联角色卡。已有分镜时会先备份再覆盖，可撤销。
+          当前检测到 <b className="font-mono text-zinc-600 dark:text-zinc-300">{unitCount}</b>{' '}
+          个情节，点拆分镜将生成{' '}
+          <b className="font-mono text-zinc-600 dark:text-zinc-300">{willSplitCount}</b> 段 × {shotLen}s
+          （按情节语义拆：句号 → 逗号 → 长度三级切分，<b>有内容的情节才拆，绝不生成空模板</b>）。每段自动带画面描述、运镜、
+          <strong>完整提示词</strong>，出现角色名自动关联角色卡。已有分镜先备份，可撤销。
         </p>
       </div>
 
