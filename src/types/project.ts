@@ -26,6 +26,7 @@ export interface Project {
   style: ProjectStyle;
   activeEra: CharacterEra; /** 当前时代：生成提示词时按该时代取角色卡 */
   dubbingScheme?: DubbingScheme; /** 配音方案（默认无配音） */
+  shotLength?: number; /** 单镜时长（秒）：10（默认）或 5，拆分镜时用 */
   status: ProjectStatus;
   createdAt: number;
   updatedAt: number;

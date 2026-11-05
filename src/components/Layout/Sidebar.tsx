@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { NAV_ITEMS } from './navItems';
+import { APP_VERSION } from '../../lib/version';
 
 /** 左侧固定导航（220px），手机端隐藏、由 MobileTabbar 接管 */
 export default function Sidebar() {
@@ -38,6 +39,8 @@ export default function Sidebar() {
         本地运行 · 数据存 IndexedDB
         <br />
         不联网 · 不上传
+        <br />
+        <span className="font-mono">v{APP_VERSION}</span>
       </div>
     </aside>
   );

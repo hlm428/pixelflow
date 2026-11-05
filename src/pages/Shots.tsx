@@ -4,8 +4,10 @@ import { useProjectStore } from '../store/projectStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useToastStore } from '../store/toastStore';
 import { useShotStore } from '../store/shotStore';
-import { clipsRepo, qcReportsRepo } from '../lib/db';
-import { planShotCount, splitStoryToShots, SHOT_STATUS_STYLE } from '../lib/shot';
+import { usePromptStore } from '../store/promptStore';
+import { charactersRepo, clipsRepo, qcReportsRepo, promptsRepo, dubbingsRepo } from '../lib/db';
+import { takeProjectSnapshot, restoreProjectSnapshot, type ProjectSnapshot } from '../lib/backup';
+import { planShotCount, splitStoryToShots, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
 import { SHOT_STATUSES, type Shot, type ShotStatus } from '../types/shot';
 import type { Clip } from '../types/clip';
 import type { QCReport } from '../types/qc';
@@ -28,11 +30,15 @@ export default function Shots() {
   const reorder = useShotStore((s) => s.reorder);
   const batchStatus = useShotStore((s) => s.batchStatus);
   const replaceAllWithDrafts = useShotStore((s) => s.replaceAllWithDrafts);
+  const generateMany = usePromptStore((s) => s.generateMany);
   const showToast = useToastStore((s) => s.show);
 
   const [story, setStory] = useState('');
   const [clips, setClips] = useState<Clip[]>([]);
   const [reports, setReports] = useState<QCReport[]>([]);
+  const [promptCount, setPromptCount] = useState(0);
+  const [dubbingCount, setDubbingCount] = useState(0);
+  const [backup, setBackup] = useState<ProjectSnapshot | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [editingShot, setEditingShot] = useState<Shot | null>(null);
@@ -47,9 +53,13 @@ export default function Shots() {
     void Promise.all([
       clipsRepo.listByProject(currentProjectId),
       qcReportsRepo.listByProject(currentProjectId),
-    ]).then(([c, r]) => {
+      promptsRepo.listByProject(currentProjectId),
+      dubbingsRepo.listByProject(currentProjectId),
+    ]).then(([c, r, p, d]) => {
       setClips(c);
       setReports(r);
+      setPromptCount(p.length);
+      setDubbingCount(d.length);
     });
   }, [currentProjectId, loadShots, shots]);
 
@@ -84,7 +94,8 @@ export default function Shots() {
   }
 
   const detailShot = shots.find((s) => s.id === detailId) ?? null;
-  const planCount = planShotCount(project.targetDuration);
+  const shotLen = project.shotLength ?? SHOT_LENGTH_DEFAULT;
+  const planCount = planShotCount(project.targetDuration, shotLen);
 
   const doSplit = async () => {
     const text = story.trim();
@@ -92,17 +103,51 @@ export default function Shots() {
       showToast('先写一句话故事');
       return;
     }
-    const drafts = splitStoryToShots(text, project.targetDuration);
-    await replaceAllWithDrafts(project.id, drafts);
-    if (project.oneLineStory !== text) {
-      await updateProject(project.id, {
-        oneLineStory: text,
-        status: project.status === '构思中' ? '制作中' : project.status,
-      });
+    try {
+      const drafts = splitStoryToShots(text, project.targetDuration, shotLen);
+      // 拆分前自动备份（可撤销）
+      const backupSnap = shots.length > 0 ? await takeProjectSnapshot(project.id) : null;
+      await replaceAllWithDrafts(project.id, drafts, shotLen);
+      // 自动关联角色卡：分镜文本里出现角色名就挂上
+      const cards = await charactersRepo.listByProject(project.id);
+      const created = useShotStore.getState().shots;
+      for (const s of created) {
+        const textAll = `${s.description}${s.visualContent}`;
+        const ids = cards.filter((c) => c.name && textAll.includes(c.name)).map((c) => c.id);
+        if (ids.length > 0) await useShotStore.getState().update(s.id, { characterIds: ids });
+      }
+      // 自动生成 v1 提示词（角色卡原文 + 场景 + 风格 + 运镜 + 接力句）
+      const linked = useShotStore.getState().shots;
+      const okCount = await generateMany(linked.map((s) => s.id));
+      if (project.oneLineStory !== text) {
+        await updateProject(project.id, {
+          oneLineStory: text,
+          status: project.status === '构思中' ? '制作中' : project.status,
+        });
+      }
+      setSelected(new Set());
+      setConfirmSplit(false);
+      setBackup(backupSnap);
+      showToast(
+        `已拆成 ${drafts.length} 个分镜，自动生成 ${okCount} 条提示词${backupSnap ? '（旧版本已备份，可撤销）' : ''}`,
+      );
+    } catch (err) {
+      setConfirmSplit(false);
+      showToast(`拆分失败：${err instanceof Error ? err.message : String(err)}——旧数据未动，请截图反馈`);
     }
-    setSelected(new Set());
-    setConfirmSplit(false);
-    showToast(`已拆成 ${drafts.length} 个分镜（每段 10 秒）`);
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!backup) return;
+    await restoreProjectSnapshot(backup);
+    if (currentProjectId) await loadShots(currentProjectId);
+    setBackup(null);
+    showToast('已撤销，恢复到拆分前');
+  };
+
+  const handleShotLengthChange = (len: number) => {
+    void updateProject(project.id, { shotLength: len });
+    showToast(`单镜时长改为 ${len} 秒——对下一次「拆分镜」生效`);
   };
 
   const handleSplit = () => {
@@ -142,9 +187,20 @@ export default function Shots() {
           <h1 className="text-lg font-semibold">故事与分镜</h1>
           <span className="text-sm text-zinc-500">{project.name}</span>
           <span className="badge bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            目标 {project.targetDuration}s ≈ {planCount} 段 × 10s
+            目标 {project.targetDuration}s ≈ {planCount} 段 × {shotLen}s
           </span>
-          <div className="ml-auto flex gap-2">
+          <label className="ml-auto flex items-center gap-1.5 text-xs text-zinc-500">
+            单镜时长
+            <select
+              className="input w-20"
+              value={shotLen}
+              onChange={(e) => handleShotLengthChange(Number(e.target.value))}
+            >
+              <option value={10}>10 秒</option>
+              <option value={5}>5 秒</option>
+            </select>
+          </label>
+          <div className="flex gap-2">
             <button
               className="btn-outline"
               onClick={() => {
@@ -166,9 +222,25 @@ export default function Shots() {
           placeholder="一句话故事：例：雨天校门口，短发女生把伞分一半给长发女生；便利店买橘子汽水；河边日落碰杯；一张纸条写着明天见。"
         />
         <p className="mt-1.5 text-xs text-zinc-400">
-          点「拆分镜」按目标时长自动切成 {planCount} 个 10 秒分镜（句子均匀分配）。已有分镜时会先确认再覆盖。
+          按<strong>情节语义</strong>拆分（句号 → 逗号 → 长度三级切分），每段分镜自动带画面描述、运镜和<strong>完整提示词</strong>，出现角色名自动关联角色卡。已有分镜时会先备份再覆盖，可撤销。
         </p>
       </div>
+
+      {/* 拆分前备份横幅（可撤销） */}
+      {backup && backup.shots.length > 0 && (
+        <div className="card flex flex-wrap items-center gap-2 border-amber-500/40 bg-amber-500/5 p-3 dark:bg-amber-500/10">
+          <span className="text-sm text-amber-700 dark:text-amber-400">
+            上一版已自动备份：{backup.shots.length} 分镜 · {backup.prompts.length} 提示词 ·{' '}
+            {backup.clips.length} 片段 · {backup.dubbings.length} 配音
+          </span>
+          <button className="btn-outline ml-auto text-xs" onClick={() => void handleRestoreBackup()}>
+            ↩️ 撤销本次拆分
+          </button>
+          <button className="btn-ghost text-xs" onClick={() => setBackup(null)}>
+            放弃备份
+          </button>
+        </div>
+      )}
 
       {/* 时间轴 */}
       <div className="card p-4">
@@ -182,7 +254,7 @@ export default function Shots() {
             ))}
           </div>
         </div>
-        <ShotTimeline shots={shots} onSelect={(id) => setDetailId(id)} />
+        <ShotTimeline shots={shots} onSelect={(id) => setDetailId(id)} shotLength={shotLen} />
       </div>
 
       {/* 批量操作条 */}
@@ -264,8 +336,8 @@ export default function Shots() {
         open={confirmSplit}
         danger
         title="重新拆分镜"
-        message={`当前已有 ${shots.length} 个分镜。重新拆分会清空现有分镜和它们下面的片段、提示词、QC、配音记录，确定覆盖？`}
-        confirmText="覆盖重拆"
+        message={`当前已有 ${shots.length} 个分镜、${promptCount} 条提示词、${clips.length} 个片段、${dubbingCount} 条配音。重新拆分会覆盖这些内容——拆分前会自动备份（拆完可一键撤销），确定？`}
+        confirmText="备份并覆盖重拆"
         onConfirm={() => void doSplit()}
         onCancel={() => setConfirmSplit(false)}
       />

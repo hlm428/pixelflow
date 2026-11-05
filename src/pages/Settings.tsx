@@ -16,6 +16,10 @@ import {
 import { downloadFile } from '../lib/utils';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import Modal from '../components/ui/Modal';
+import { useTemplateStore } from '../store/templateStore';
+import { useProjectStore } from '../store/projectStore';
+import { reseedDemoProjects } from '../lib/seed';
+import { APP_VERSION } from '../lib/version';
 import {
   ASPECT_RATIOS,
   PROJECT_STYLES,
@@ -103,7 +107,9 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="card p-5">
-        <h1 className="text-lg font-semibold">设置</h1>
+        <h1 className="text-lg font-semibold">
+          设置 <span className="ml-1 font-mono text-xs text-zinc-400">v{APP_VERSION}</span>
+        </h1>
         <p className="mt-1 text-xs text-zinc-500">全部存在浏览器本地（localStorage + IndexedDB），不联网。</p>
       </div>
 
@@ -205,6 +211,26 @@ export default function Settings() {
         <div className="flex flex-wrap gap-2">
           <button className="btn-outline" onClick={() => void handleExportAll()}>
             ⬇ 导出全部数据
+          </button>
+          <button
+            className="btn-outline"
+            onClick={async () => {
+              await templatesRepo.clear();
+              await useTemplateStore.getState().loadAll();
+              showToast('已重灌提示词模板库（260 条）');
+            }}
+          >
+            ♻ 重灌提示词模板库
+          </button>
+          <button
+            className="btn-outline"
+            onClick={async () => {
+              const n = await reseedDemoProjects();
+              await useProjectStore.getState().load();
+              showToast(`已恢复 ${n} 个示例项目（含分镜和提示词）`);
+            }}
+          >
+            🎬 恢复示例项目（5 个）
           </button>
           <label className="btn-outline cursor-pointer">
             ⬆ 导入全量备份（覆盖现有数据）

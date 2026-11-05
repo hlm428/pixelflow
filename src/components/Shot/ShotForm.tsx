@@ -72,6 +72,8 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
       if (shot) await update(shot.id, patch);
       else await create(projectId, patch);
       onClose();
+    } catch (err) {
+      setError(`保存失败：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }

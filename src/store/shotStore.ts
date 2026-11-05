@@ -1,8 +1,17 @@
 import { create } from 'zustand';
 import type { Shot, ShotStatus } from '../types/shot';
 import { clipsRepo, promptsRepo, qcReportsRepo, dubbingsRepo, shotsRepo } from '../lib/db';
-import { recalcShots, draftToShot, type ShotDraft } from '../lib/shot';
+import { recalcShots, draftToShot, SHOT_LENGTH_DEFAULT, type ShotDraft } from '../lib/shot';
 import { uid } from '../lib/utils';
+import { useProjectStore } from './projectStore';
+
+/** 项目的单镜时长（未设置则默认 10 秒） */
+function projectShotLength(projectId: string): number {
+  return (
+    useProjectStore.getState().projects.find((p) => p.id === projectId)?.shotLength ??
+    SHOT_LENGTH_DEFAULT
+  );
+}
 
 interface ShotState {
   /** 当前项目的分镜（按 index 升序） */
@@ -19,7 +28,7 @@ interface ShotState {
   /** 批量改状态 */
   batchStatus: (ids: string[], status: ShotStatus) => Promise<void>;
   /** 一句话故事拆分镜：清空该项目现有分镜（含级联数据）后批量写入草稿 */
-  replaceAllWithDrafts: (projectId: string, drafts: ShotDraft[]) => Promise<void>;
+  replaceAllWithDrafts: (projectId: string, drafts: ShotDraft[], shotLength?: number) => Promise<void>;
 }
 
 function sortByIdx(list: Shot[]): Shot[] {
@@ -83,17 +92,18 @@ export const useShotStore = create<ShotState>()((set, get) => ({
       qcReportsRepo.deleteMany(reports.filter((r) => r.shotId === id).map((r) => r.id)),
       dubbingsRepo.deleteMany(dubbings.filter((d) => d.shotId === id).map((d) => d.id)),
     ]);
-    set({ shots: recalcShots(current.filter((s) => s.id !== id)) });
-    await shotsRepo.saveMany(recalcShots(get().shots));
+    set({ shots: recalcShots(current.filter((s) => s.id !== id), projectShotLength(target.projectId)) });
+    await shotsRepo.saveMany(recalcShots(get().shots, projectShotLength(target.projectId)));
   },
 
   async reorder(fromIndex0, toIndex0) {
     const current = get().shots;
     if (fromIndex0 === toIndex0 || fromIndex0 < 0 || toIndex0 < 0 || fromIndex0 >= current.length || toIndex0 >= current.length) return;
+    const len = projectShotLength(current[0]?.projectId ?? '');
     const moved = [...current];
     const [item] = moved.splice(fromIndex0, 1);
     moved.splice(toIndex0, 0, item);
-    const recalced = recalcShots(moved);
+    const recalced = recalcShots(moved, len);
     set({ shots: recalced });
     await shotsRepo.saveMany(recalced);
   },
@@ -108,7 +118,7 @@ export const useShotStore = create<ShotState>()((set, get) => ({
     set({ shots: current.map((s) => (ids.includes(s.id) ? { ...s, status } : s)) });
   },
 
-  async replaceAllWithDrafts(projectId, drafts) {
+  async replaceAllWithDrafts(projectId, drafts, shotLength = SHOT_LENGTH_DEFAULT) {
     const current = get().shots;
     // 级联清掉现有分镜的所有关联数据
     const [clips, prompts, reports, dubbings] = await Promise.all([
@@ -126,7 +136,7 @@ export const useShotStore = create<ShotState>()((set, get) => ({
     if (current.length > 0) {
       await shotsRepo.deleteMany(current.map((s) => s.id));
     }
-    const created = drafts.map((d, i) => draftToShot(projectId, d, i + 1));
+    const created = drafts.map((d, i) => draftToShot(projectId, d, i + 1, shotLength));
     await shotsRepo.saveMany(created);
     set({ shots: created, loadedProjectId: projectId });
   },

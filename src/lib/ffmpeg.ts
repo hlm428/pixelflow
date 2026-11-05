@@ -5,6 +5,8 @@ import { ASPECT_RESOLUTION } from '../types/project';
 export interface FfmpegParams {
   projectName: string;
   aspectRatio: AspectRatio;
+  /** 单镜时长（秒）：10 或 5 */
+  shotLength: number;
   /** 已通过片段（按分镜顺序）：分镜号 + 文件名 */
   clips: Array<{ shotIndex: number; fileName: string }>;
   /** 缺通过片段的分镜号（脚本里会注释提醒） */
@@ -58,7 +60,7 @@ export function buildFfmpegScript(p: FfmpegParams): { bash: string; bat: string 
   const { width, height } = ASPECT_RESOLUTION[p.aspectRatio];
   const filter = preprocessFilter(p);
   const n = p.clips.length;
-  const totalSec = n * 10 - (p.transition === '溶解' ? (n - 1) * p.dissolveSec : 0);
+  const totalSec = n * p.shotLength - (p.transition === '溶解' ? (n - 1) * p.dissolveSec : 0);
 
   const missingNote =
     p.missingShotIndexes.length > 0
@@ -82,7 +84,7 @@ export function buildFfmpegScript(p: FfmpegParams): { bash: string; bat: string 
           `ffmpeg -y ${p.clips.map((_, i) => `-i proc_${pad2(i + 1)}.mp4`).join(' ')} \\`,
           `  -filter_complex "${p.clips.slice(1).map((_, k) => {
             const prev = k === 0 ? '0:v' : `v${pad2(k)}`;
-            const offset = xfadeOffset(k + 1, 10, p.dissolveSec);
+            const offset = xfadeOffset(k + 1, p.shotLength, p.dissolveSec);
             return `[${prev}][${k + 1}:v]xfade=transition=fade:duration=${p.dissolveSec}:offset=${offset}[v${pad2(k + 1)}]`;
           }).join(';')}" \\`,
           `  -map "[v${pad2(n - 1)}]" -c:v libx264 -crf ${p.crf} -preset medium merged.mp4`,
@@ -157,7 +159,7 @@ export function buildFfmpegScript(p: FfmpegParams): { bash: string; bat: string 
           `REM 2) 接缝溶解（xfade 链）`,
           `ffmpeg -y ${p.clips.map((_, i) => `-i proc_${pad2(i + 1)}.mp4`).join(' ')} -filter_complex "${p.clips.slice(1).map((_, k) => {
             const prev = k === 0 ? '0:v' : `v${pad2(k)}`;
-            const offset = xfadeOffset(k + 1, 10, p.dissolveSec);
+            const offset = xfadeOffset(k + 1, p.shotLength, p.dissolveSec);
             return `[${prev}][${k + 1}:v]xfade=transition=fade:duration=${p.dissolveSec}:offset=${offset}[v${pad2(k + 1)}]`;
           }).join(';')}" -map "[v${pad2(n - 1)}]" -c:v libx264 -crf ${p.crf} -preset medium merged.mp4`,
         ].join('\n')

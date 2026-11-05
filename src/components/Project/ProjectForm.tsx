@@ -102,6 +102,8 @@ export default function ProjectForm({ open, initial, onClose }: ProjectFormProps
         useSettingsStore.getState().update({ currentProjectId: created.id });
       }
       onClose();
+    } catch (err) {
+      setError(`保存失败：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }

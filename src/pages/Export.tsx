@@ -8,6 +8,7 @@ import { useDubbingStore } from '../store/dubbingStore';
 import { buildFfmpegScript, estimateFileMB } from '../lib/ffmpeg';
 import FfmpegScript from '../components/Export/FfmpegScript';
 import PublishKitCard from '../components/Export/PublishKit';
+import { SHOT_LENGTH_DEFAULT } from '../lib/shot';
 import { ASPECT_RESOLUTION } from '../types/project';
 
 /** 拼接与导出页：参数面板 + 成片预估 + ffmpeg 脚本 + 发布套件 */
@@ -82,6 +83,7 @@ export default function Export() {
     return buildFfmpegScript({
       projectName: project.name,
       aspectRatio: project.aspectRatio,
+      shotLength: project.shotLength ?? SHOT_LENGTH_DEFAULT,
       clips: passedClips,
       missingShotIndexes,
       transition,
@@ -114,16 +116,17 @@ export default function Export() {
   ]);
 
   const estimate = useMemo(() => {
+    const shotLen = project?.shotLength ?? SHOT_LENGTH_DEFAULT;
     const segCount = passedClips.length;
-    const dur = segCount * 10 - (transition === '溶解' ? Math.max(0, segCount - 1) * (Number(dissolveSec) || 0.125) : 0);
+    const dur = segCount * shotLen - (transition === '溶解' ? Math.max(0, segCount - 1) * (Number(dissolveSec) || 0.125) : 0);
     const { width, height } = ASPECT_RESOLUTION[project?.aspectRatio ?? '16:9'];
     return {
       duration: dur,
       resolution: `${width}×${height}`,
       sizeMB: estimateFileMB(dur, Number(bitrate) || 8),
-      fullDuration: shots.length * 10,
+      fullDuration: shots.length * shotLen,
     };
-  }, [passedClips, transition, dissolveSec, project?.aspectRatio, bitrate, shots.length]);
+  }, [passedClips, transition, dissolveSec, project?.aspectRatio, project?.shotLength, bitrate, shots.length]);
 
   if (!currentProjectId || !project) {
     return (

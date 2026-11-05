@@ -4,10 +4,12 @@ import type { Shot } from '../../types/shot';
 interface ShotTimelineProps {
   shots: Shot[];
   onSelect: (id: string) => void;
+  /** 单镜时长（秒） */
+  shotLength?: number;
 }
 
-/** 横向时间轴：每个 10 秒一段，颜色 = 状态，点击选中对应分镜 */
-export default function ShotTimeline({ shots, onSelect }: ShotTimelineProps) {
+/** 横向时间轴：每段一个分镜，颜色 = 状态，点击选中对应分镜 */
+export default function ShotTimeline({ shots, onSelect, shotLength = 10 }: ShotTimelineProps) {
   if (shots.length === 0) {
     return (
       <div className="rounded-lg bg-zinc-50 px-4 py-3 text-center text-xs text-zinc-500 dark:bg-zinc-800/60">
@@ -15,7 +17,8 @@ export default function ShotTimeline({ shots, onSelect }: ShotTimelineProps) {
       </div>
     );
   }
-  const total = shots.length * 10;
+  const last = shots[shots.length - 1];
+  const total = last.startTime + shotLength;
   return (
     <div>
       <div className="flex gap-1 overflow-x-auto pb-1">
@@ -33,7 +36,9 @@ export default function ShotTimeline({ shots, onSelect }: ShotTimelineProps) {
       </div>
       <div className="mt-1 flex justify-between font-mono text-[10px] text-zinc-400">
         <span>0s</span>
-        <span>{total}s · 共 {shots.length} 段 × 10s</span>
+        <span>
+          {total}s · 共 {shots.length} 段 × {shotLength}s
+        </span>
       </div>
     </div>
   );
