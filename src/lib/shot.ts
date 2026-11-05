@@ -52,6 +52,7 @@ export interface ShotDraft {
   description: string;
   visualContent: string;
   camera: string;
+  light: string;
   dialogue: string;
 }
 
@@ -99,6 +100,25 @@ export function splitStoryUnits(story: string): string[] {
   return units;
 }
 
+/** 从情节文本里猜光线（对齐柑橘 6 镜提示词的光线写法） */
+const LIGHT_HINTS: Array<[RegExp, string]> = [
+  [/便利店|室内|店里|超市|货架/, '便利店暖白室内光'],
+  [/日落|晚霞|黄昏|夕阳|落日|余晖|傍晚/, '日落暖橙色光'],
+  [/雨|淋湿|伞/, '雨天柔和冷光'],
+  [/深夜|凌晨|午夜|月光|夜里|黑夜/, '夜色冷蓝光'],
+  [/雪/, '雪地反光明亮冷调'],
+  [/清晨|早晨|早上|晨光/, '清晨柔光'],
+  [/烛|炉火|篝火|火光/, '暖色火光'],
+  [/面馆|食堂|蒸汽|热汤/, '暖黄室内灯光配蒸汽'],
+];
+
+export function lightFromText(text: string): string {
+  for (const [re, light] of LIGHT_HINTS) {
+    if (re.test(text)) return light;
+  }
+  return '';
+}
+
 /**
  * 一句话故事 → 分镜草稿。
  * 核心原则：有故事内容时，绝不为凑数生成空模板——
@@ -120,6 +140,7 @@ export function splitStoryToShots(
       description: `${STORY_BEATS[i % STORY_BEATS.length]}：待补充`,
       visualContent: '画面待补充：写清楚场景、人物动作、出现什么。',
       camera: CAMERA_PRESETS[i % CAMERA_PRESETS.length],
+      light: '',
       dialogue: '',
     }));
   }
@@ -137,6 +158,7 @@ export function splitStoryToShots(
       description,
       visualContent: description,
       camera: CAMERA_PRESETS[i % CAMERA_PRESETS.length],
+      light: lightFromText(description),
       dialogue: '',
     };
   });
@@ -157,6 +179,7 @@ export function draftToShot(
     description: draft.description,
     visualContent: draft.visualContent,
     camera: draft.camera,
+    light: draft.light,
     dialogue: draft.dialogue,
     characterIds: [],
     status: '待写',

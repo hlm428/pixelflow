@@ -139,7 +139,7 @@ describe('splitStoryToShots 语义拆分（绝不生成空模板）', () => {
 
 describe('draftToShot 草稿转记录', () => {
   it('字段齐全：编号、时间点、状态待写', () => {
-    const s = draftToShot('p1', { description: 'a', visualContent: 'b', camera: '推近', dialogue: '' }, 3);
+    const s = draftToShot('p1', { description: 'a', visualContent: 'b', camera: '推近', light: '', dialogue: '' }, 3);
     expect(s.index).toBe(3);
     expect(s.startTime).toBe(20);
     expect(s.status).toBe('待写');
@@ -148,7 +148,7 @@ describe('draftToShot 草稿转记录', () => {
   });
 
   it('5 秒单镜时长：第 3 镜从 10s 开始', () => {
-    const s = draftToShot('p1', { description: 'a', visualContent: 'b', camera: '', dialogue: '' }, 3, 5);
+    const s = draftToShot('p1', { description: 'a', visualContent: 'b', camera: '', light: '', dialogue: '' }, 3, 5);
     expect(s.startTime).toBe(10);
   });
 });

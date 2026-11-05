@@ -10,6 +10,7 @@ export interface Shot {
   description: string; /** 一句话描述 */
   visualContent: string; /** 画面内容（详细） */
   camera: string; /** 运镜 */
+  light?: string; /** 光线（黄昏暖金 / 雨天冷光…），空则按项目风格给默认值 */
   dialogue: string; /** 台词 / 旁白 */
   characterIds: string[]; /** 出现的角色卡 id */
   status: ShotStatus;

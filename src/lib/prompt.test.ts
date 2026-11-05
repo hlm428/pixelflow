@@ -95,18 +95,20 @@ describe('resolveCards 时代解析', () => {
 });
 
 describe('buildPrompt 生成公式', () => {
-  it('完整公式：角色卡+场景+风格+运镜+接力句（第 2 镜）', () => {
+  it('完整公式：角色卡+视觉锁定+场景+运镜+光线+接力句（第 2 镜）', () => {
     const content = buildPrompt({
       project,
       shotIndex: 2,
       visualContent: '两人共伞走过商店街',
       camera: '跟随',
+      light: '雨天柔和冷光',
       characterCards: [card()],
     });
     expect(content).toContain('【人物锁定·小满】');
+    expect(content).toContain('【视觉锁定】Japanese anime film style');
     expect(content).toContain('【场景】两人共伞走过商店街');
-    expect(content).toContain('anime movie style');
     expect(content).toContain('【运镜】跟随');
+    expect(content).toContain('【光线】雨天柔和冷光');
     expect(content).toContain('【接力】');
   });
 
@@ -121,7 +123,7 @@ describe('buildPrompt 生成公式', () => {
     expect(content).not.toContain('【接力】');
   });
 
-  it('包含视觉锁定（画面内不出现文字）', () => {
+  it('包含视觉锁定（英文硬规则：no readable text）', () => {
     const content = buildPrompt({
       project,
       shotIndex: 1,
@@ -129,7 +131,43 @@ describe('buildPrompt 生成公式', () => {
       camera: '',
       characterCards: [],
     });
-    expect(content).toContain('不出现任何文字');
+    expect(content).toContain('no readable text anywhere in frame');
+    expect(content).toContain('same light source and same color temperature');
+  });
+
+  it('光线：没填时给风格默认光线段', () => {
+    const content = buildPrompt({
+      project,
+      shotIndex: 1,
+      visualContent: 'x',
+      camera: '',
+      characterCards: [],
+    });
+    expect(content).toContain('【光线】');
+  });
+
+  it('光线：自定义光线原样带入', () => {
+    const content = buildPrompt({
+      project,
+      shotIndex: 1,
+      visualContent: 'x',
+      camera: '',
+      light: '雨夜霓虹湿路反光',
+      characterCards: [],
+    });
+    expect(content).toContain('【光线】雨夜霓虹湿路反光');
+  });
+
+  it('接力句中英双语并标上一镜编号', () => {
+    const content = buildPrompt({
+      project,
+      shotIndex: 3,
+      visualContent: 'x',
+      camera: '',
+      characterCards: [],
+    });
+    expect(content).toContain('承接上一个分镜（#2）的尾帧');
+    expect(content).toContain('Continue from the tail frame of shot #2');
   });
 
   it('extraWords 会作为【补充】段插入', () => {

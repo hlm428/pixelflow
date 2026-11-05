@@ -10,6 +10,7 @@ interface SeedShot {
   desc: string;
   visual: string;
   camera: string;
+  light?: string;
   dialogue?: string;
   chars?: string[];
 }
@@ -81,6 +82,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '雨夜校门口，暖黄路灯把雨丝照成金色。小满撑粉色长柄伞站在门口，把伞往淋雨的小雪那边偏，自己半边肩膀淋湿，两人对视一笑。',
         camera: '推近',
+        light: '雨天阴天冷光，柔和均匀',
         dialogue: '梅雨の終わり、君と出会った。（梅雨结束的那天，我遇见了你）',
         chars: ['小满', '小雪'],
       },
@@ -89,6 +91,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '两人挤在同一把粉色伞下走过湿漉漉的商店街，霓虹招牌在积水里拉出彩色倒影，肩膀偶尔碰在一起，谁也没有躲开。',
         camera: '跟随',
+        light: '雨天柔和冷光',
         dialogue: '傘の中の距離、十センチ。（伞下的距离，十厘米）',
         chars: ['小满', '小雪'],
       },
@@ -97,6 +100,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '便利店冷白灯光下，小雪踮脚去够货架第二排的橘子汽水，小满在旁边伸手稳稳取下一瓶，两人各拿一瓶对着灯光看气泡。',
         camera: '平移',
+        light: '便利店暖白室内光',
         dialogue: 'オレンジシトラスソーダ、二本！（橘子汽水，来两瓶！）',
         chars: ['小满', '小雪'],
       },
@@ -105,6 +109,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '黄金时刻的河堤长椅，夕阳把河面染成橘色。两瓶橘子汽水轻轻碰杯，气泡在逆光里往上窜，两人碰杯后同时仰头喝。',
         camera: '环绕',
+        light: '日落暖橙色光',
         dialogue: '乾杯——夏に。（干杯——敬夏天）',
         chars: ['小满', '小雪'],
       },
@@ -113,6 +118,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '晚风里，小雪把一张纸条塞进小满手心，两双手握在一起的特写。画面内不出现任何文字——纸条内容只用手部动作和眼神表达。',
         camera: '推近',
+        light: '黄昏余晖柔光，街灯初亮',
         dialogue: '明日、またここで。（明天，还在这里）',
         chars: ['小满', '小雪'],
       },
@@ -121,6 +127,7 @@ export const SEED_PROJECTS: SeedProject[] = [
         visual:
           '两人并排坐在河堤草坡上看晚霞，喝了一半的橘子汽水瓶立在草地上，两道影子被夕阳拉得很长，画面渐暗。',
         camera: '拉远',
+        light: '黄昏暖金色阳光，逆光',
         dialogue: '雨の匂いが、夏の匂いに変わった。（雨的味道，变成了夏天的味道）',
         chars: ['小满', '小雪'],
       },
@@ -519,6 +526,7 @@ export function buildSeedBundle(): SeedBundle {
         description: ss.desc,
         visualContent: ss.visual,
         camera: ss.camera,
+        light: ss.light ?? '',
         dialogue: ss.dialogue ?? '',
         characterIds: (ss.chars ?? []).map((n) => nameToId.get(n) ?? '').filter(Boolean),
         status: '待生成',
@@ -534,6 +542,7 @@ export function buildSeedBundle(): SeedBundle {
         shotIndex: i + 1,
         visualContent: ss.visual,
         camera: ss.camera,
+        light: ss.light,
         characterCards: cards,
       });
       prompts.push({

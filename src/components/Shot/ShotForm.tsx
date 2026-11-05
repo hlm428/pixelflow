@@ -3,6 +3,20 @@ import Modal from '../ui/Modal';
 import { useShotStore } from '../../store/shotStore';
 import { charactersRepo } from '../../lib/db';
 import { CAMERA_PRESETS } from '../../lib/shot';
+
+/** 常用光线预设（对齐《柑橘味的夏天-6镜提示词》里的光线写法） */
+const LIGHT_PRESETS = [
+  '雨天阴天冷光，柔和均匀',
+  '雨天柔和冷光',
+  '便利店暖白室内光',
+  '黄昏暖金色阳光',
+  '日落暖橙色光',
+  '黄昏余晖柔光',
+  '月光冷蓝夜色',
+  '阴天柔光无影',
+  '篝火暖光映脸',
+  '雨夜霓虹湿路反光',
+];
 import { SHOT_STATUSES, type Shot, type ShotStatus } from '../../types/shot';
 import type { CharacterCard } from '../../types/character';
 
@@ -22,6 +36,7 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
   const [description, setDescription] = useState('');
   const [visualContent, setVisualContent] = useState('');
   const [camera, setCamera] = useState('');
+  const [light, setLight] = useState('');
   const [dialogue, setDialogue] = useState('');
   const [status, setStatus] = useState<ShotStatus>('待写');
   const [characterIds, setCharacterIds] = useState<string[]>([]);
@@ -36,6 +51,7 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
       setDescription(shot.description);
       setVisualContent(shot.visualContent);
       setCamera(shot.camera);
+      setLight(shot.light ?? '');
       setDialogue(shot.dialogue);
       setStatus(shot.status);
       setCharacterIds(shot.characterIds);
@@ -43,6 +59,7 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
       setDescription('');
       setVisualContent('');
       setCamera('');
+      setLight('');
       setDialogue('');
       setStatus('待写');
       setCharacterIds([]);
@@ -65,6 +82,7 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
         description: description.trim(),
         visualContent: visualContent.trim(),
         camera: camera.trim(),
+        light: light.trim(),
         dialogue: dialogue.trim(),
         status,
         characterIds,
@@ -117,6 +135,21 @@ export default function ShotForm({ open, projectId, shot, onClose }: ShotFormPro
             <datalist id="camera-presets">
               {CAMERA_PRESETS.map((c) => (
                 <option key={c} value={c} />
+              ))}
+            </datalist>
+          </label>
+          <label className="block text-sm">
+            <span>光线</span>
+            <input
+              className="input mt-1"
+              value={light}
+              onChange={(e) => setLight(e.target.value)}
+              list="light-presets"
+              placeholder="留空 = 按项目风格给默认光线"
+            />
+            <datalist id="light-presets">
+              {LIGHT_PRESETS.map((l) => (
+                <option key={l} value={l} />
               ))}
             </datalist>
           </label>

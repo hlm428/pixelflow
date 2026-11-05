@@ -57,6 +57,7 @@ export default function ShotDetail({ shot, onClose }: ShotDetailProps) {
             <span className={`badge ${SHOT_STATUS_STYLE[shot.status]}`}>{shot.status}</span>
             <span className="font-mono text-xs text-zinc-500">时长 {formatDuration(10)}</span>
             {shot.camera && <span className="text-xs text-zinc-500">运镜：{shot.camera}</span>}
+            {shot.light && <span className="text-xs text-zinc-500">光线：{shot.light}</span>}
           </div>
           <h3 className="mt-2 text-sm font-semibold">{shot.description || '（无描述）'}</h3>
           <div className="mt-2 rounded-lg bg-zinc-50 p-3 text-sm leading-relaxed text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">

@@ -110,7 +110,7 @@ describe('写入链路端到端（fake-indexeddb）', () => {
       const versions = usePromptStore.getState().byShot(s.id);
       expect(versions).toHaveLength(1);
       expect(versions[0].content).toContain('【场景】');
-      expect(versions[0].content).toContain('anime movie style');
+      expect(versions[0].content).toContain('anime film style');
     }
   });
 

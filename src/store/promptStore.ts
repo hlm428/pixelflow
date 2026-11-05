@@ -62,6 +62,7 @@ export const usePromptStore = create<PromptState>()((set, get) => ({
       shotIndex: shot.index,
       visualContent: shot.visualContent || shot.description,
       camera: shot.camera,
+      light: shot.light,
       characterCards: resolved,
     });
     const version = shot.promptVersion + 1;
