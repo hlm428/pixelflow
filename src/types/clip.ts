@@ -27,5 +27,7 @@ export interface Clip {
   retryCount: number; /** 已重试次数 0–2 */
   score: number; /** 自动打分 + 人工调整，0–100 */
   isBest: boolean; /** 该分镜候选中的最优 */
+  videoBlob?: Blob; /** AI 生成并下载的视频本体（存 IndexedDB，可跨会话预览） */
+  sourceUrl?: string; /** 生成服务返回的视频地址 */
   createdAt: number;
 }

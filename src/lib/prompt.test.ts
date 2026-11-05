@@ -41,10 +41,11 @@ describe('relaySentence 接力句', () => {
     expect(relaySentence(1)).toBe('');
   });
 
-  it('第 2 个分镜起带接力句', () => {
+  it('第 2 个分镜起带接力句（标上一镜编号，中英双语）', () => {
     const s = relaySentence(2);
-    expect(s).toContain('承接上一个分镜的尾帧');
+    expect(s).toContain('承接上一个分镜（#1）的尾帧');
     expect(s).toContain('连续');
+    expect(s).toContain('Continue from the tail frame of shot #1');
   });
 
   it('第 10 个分镜也有接力句', () => {

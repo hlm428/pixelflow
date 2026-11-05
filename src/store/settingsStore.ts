@@ -8,6 +8,9 @@ export type TransitionMode = '硬切' | '溶解';
 /** QC 严格程度：影响哪些检查项必须过 */
 export type QCStrictness = '严格' | '标准' | '宽松';
 
+/** AI 视频生成服务配置 */
+export type AIProviderKind = 'none' | 'fal' | 'custom';
+
 interface SettingsData {
   theme: Theme;
   defaultAspectRatio: AspectRatio;
@@ -16,6 +19,10 @@ interface SettingsData {
   dailyQuota: number; /** 每日生成片段上限 */
   qcStrictness: QCStrictness;
   currentProjectId: string | null; /** 当前选中的项目（顶部栏） */
+  aiProvider: AIProviderKind; /** 视频生成服务商 */
+  aiEndpoint: string; /** 自定义接口完整 POST 地址（fal 固定 queue.fal.run） */
+  aiKey: string; /** API 密钥（只存本浏览器） */
+  aiModel: string; /** 模型 id（fal 如 fal-ai/kling-video/v1/standard/text-to-video） */
 }
 
 interface SettingsState extends SettingsData {
@@ -30,6 +37,10 @@ const DEFAULTS: SettingsData = {
   dailyQuota: 100,
   qcStrictness: '标准',
   currentProjectId: null,
+  aiProvider: 'none',
+  aiEndpoint: '',
+  aiKey: '',
+  aiModel: '',
 };
 
 /** 全局设置（存 localStorage，小数据不进 IndexedDB） */
@@ -49,6 +60,10 @@ export const useSettingsStore = create<SettingsState>()(
         dailyQuota: s.dailyQuota,
         qcStrictness: s.qcStrictness,
         currentProjectId: s.currentProjectId,
+        aiProvider: s.aiProvider,
+        aiEndpoint: s.aiEndpoint,
+        aiKey: s.aiKey,
+        aiModel: s.aiModel,
       }),
     },
   ),

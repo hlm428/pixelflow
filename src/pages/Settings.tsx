@@ -27,6 +27,107 @@ import {
   type ProjectStyle,
 } from '../types/project';
 
+/** AI 视频生成服务配置卡：选服务商、填密钥、测试连接 */
+function AIServiceCard() {
+  const s = useSettingsStore();
+  const showToast = useToastStore((s2) => s2.show);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const cfg = { provider: s.aiProvider, endpoint: s.aiEndpoint, apiKey: s.aiKey, model: s.aiModel };
+  const set = (patch: Partial<{ aiProvider: typeof s.aiProvider; aiEndpoint: string; aiKey: string; aiModel: string }>) =>
+    s.update(patch);
+
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { testConnection } = await import('../lib/ai');
+      const r = await testConnection(cfg);
+      setTestResult(r);
+    } catch (err) {
+      setTestResult({ ok: false, message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="card space-y-3 p-5">
+      <h2 className="text-sm font-semibold">🤖 AI 生成服务</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          <span>服务商</span>
+          <select
+            className="input mt-1"
+            value={s.aiProvider}
+            onChange={(e) => set({ aiProvider: e.target.value as typeof s.aiProvider })}
+          >
+            <option value="none">未配置（手动上传模式）</option>
+            <option value="fal">fal.ai（推荐，浏览器直连，有可灵/海螺等模型）</option>
+            <option value="custom">自定义接口（自建代理 / OpenAI 兼容聚合站）</option>
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span>模型 id</span>
+          <input
+            className="input mt-1 font-mono"
+            value={s.aiModel}
+            onChange={(e) => set({ aiModel: e.target.value })}
+            placeholder={s.aiProvider === 'fal' ? 'fal-ai/kling-video/v1/standard/text-to-video' : '如 muse-10s'}
+          />
+        </label>
+        {s.aiProvider === 'custom' && (
+          <label className="block text-sm sm:col-span-2">
+            <span>接口地址（完整 POST 地址，返回 JSON 里要能找到视频地址或任务 id）</span>
+            <input
+              className="input mt-1 font-mono"
+              value={s.aiEndpoint}
+              onChange={(e) => set({ aiEndpoint: e.target.value })}
+              placeholder="https://my-proxy.example.com/video/generate"
+            />
+          </label>
+        )}
+        <label className="block text-sm sm:col-span-2">
+          <span>API Key（只存在你的浏览器 localStorage，不上传）</span>
+          <input
+            className="input mt-1 font-mono"
+            type="password"
+            value={s.aiKey}
+            onChange={(e) => set({ aiKey: e.target.value })}
+            placeholder={s.aiProvider === 'fal' ? 'fal key：$id:$secret 格式' : 'Bearer 密钥'}
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="btn-outline" onClick={() => void runTest()} disabled={testing}>
+          {testing ? '测试中…' : '🔌 测试连接'}
+        </button>
+        <a
+          className="text-xs text-indigo-500 hover:underline"
+          href={s.aiProvider === 'fal' ? 'https://fal.ai/dashboard/keys' : '#'}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {s.aiProvider === 'fal' ? '去 fal.ai 拿 API Key ↗（每条约 ¥2–5，先充值）' : ''}
+        </a>
+      </div>
+      {testResult && (
+        <p className={`rounded-lg px-3 py-2 text-xs ${testResult.ok ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-500'}`}>
+          {testResult.ok ? '✅ ' : '❌ '}
+          {testResult.message}
+        </p>
+      )}
+      <p className="text-[11px] leading-relaxed text-zinc-400">
+        工作原理：分镜页/片段页点「🤖 AI 生成」→ 用该分镜的最新提示词调用服务 → 出片自动下载存进浏览器、读时长分辨率、自动打分 → 状态变「待质检」。
+        注意：① 生成按服务商计费；② 部分服务商禁止网页直连（CORS），测试连接会提示，那种需要自建代理后填代理地址；③ PixelAIGC/Muse 是网页操作没有公开
+        API，用它做片时走「手动上传」流程即可。
+      </p>
+    </div>
+  );
+}
+
 /** 全量导出结构（9 张表） */
 async function buildFullExport(): Promise<string> {
   const [projects, shots, characters, clips, qcReports, prompts, templates, dubbings, musics] =
@@ -158,6 +259,9 @@ export default function Settings() {
           </label>
         </div>
       </div>
+
+      {/* AI 生成服务 */}
+      <AIServiceCard />
 
       {/* 生产参数 */}
       <div className="card space-y-3 p-5">

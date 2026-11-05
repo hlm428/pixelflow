@@ -8,6 +8,9 @@ import { CLIP_STATUSES, FAIL_REASONS, type ClipStatus, type FailReason } from '.
 import ClipList from '../components/Clip/ClipList';
 import ClipCompare from '../components/Clip/ClipCompare';
 import ClipUpload from '../components/Clip/ClipUpload';
+import AIGenerateModal from '../components/Clip/AIGenerateModal';
+import { isAIConfigured } from '../lib/ai';
+import { useSettingsStore as useSettingsStoreRoot } from '../store/settingsStore';
 
 /** 片段管理页：上传候选、对比选优、状态机、失败原因、多维筛选 */
 export default function Clips() {
@@ -21,6 +24,13 @@ export default function Clips() {
   const loadClips = useClipStore((s) => s.load);
 
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const aiCfg = {
+    provider: useSettingsStoreRoot((s) => s.aiProvider),
+    endpoint: useSettingsStoreRoot((s) => s.aiEndpoint),
+    apiKey: useSettingsStoreRoot((s) => s.aiKey),
+    model: useSettingsStoreRoot((s) => s.aiModel),
+  };
   const [filterShot, setFilterShot] = useState('全部');
   const [filterStatus, setFilterStatus] = useState<'全部' | ClipStatus>('全部');
   const [filterModel, setFilterModel] = useState('全部');
@@ -149,6 +159,14 @@ export default function Clips() {
             </button>
           )}
           <button
+            className={`btn-outline ${isAIConfigured(aiCfg) ? 'border-emerald-500 text-emerald-500' : ''}`}
+            onClick={() => setAiOpen(true)}
+            disabled={shots.length === 0}
+            title={isAIConfigured(aiCfg) ? '调用配置好的生成服务出片' : '先到设置页配置 AI 生成服务'}
+          >
+            🤖 AI 生成
+          </button>
+          <button
             className="btn-primary"
             onClick={() => setUploadOpen(true)}
             disabled={shots.length === 0}
@@ -185,6 +203,13 @@ export default function Clips() {
         defaultShotId={filterShot !== '全部' ? filterShot : null}
         projectAspect={project.aspectRatio}
         onClose={() => setUploadOpen(false)}
+      />
+      <AIGenerateModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        shots={shots}
+        defaultShotId={filterShot !== '全部' ? filterShot : null}
+        projectAspect={project.aspectRatio}
       />
     </div>
   );

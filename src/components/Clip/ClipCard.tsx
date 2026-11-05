@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { useClipStore } from '../../store/clipStore';
@@ -6,6 +6,29 @@ import { useToastStore } from '../../store/toastStore';
 import { CLIP_STATUS_STYLE, canRetry } from '../../lib/clip';
 import { CLIP_STATUSES, FAIL_REASONS, type Clip, type ClipStatus, type FailReason } from '../../types/clip';
 import { formatDuration, formatFileSize } from '../../lib/utils';
+
+/** AI 生成的视频预览（blob 存在 IndexedDB，可跨会话播放） */
+function VideoPreview({ clip }: { clip: Clip }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!clip.videoBlob) return;
+    const u = URL.createObjectURL(clip.videoBlob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [clip.videoBlob]);
+
+  if (clip.videoBlob && url) {
+    return <video src={url} controls className="w-full rounded-lg" preload="metadata" />;
+  }
+  return (
+    <div className="flex h-14 w-24 shrink-0 flex-col items-center justify-center rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-800 text-zinc-400">
+      <span className="text-lg">{clip.status === '生成中' ? '⏳' : '🎬'}</span>
+      <span className="font-mono text-[10px]">
+        {clip.status === '生成中' ? '生成中' : clip.duration > 0 ? formatDuration(clip.duration) : '无预览'}
+      </span>
+    </div>
+  );
+}
 
 interface ClipCardProps {
   clip: Clip;
@@ -63,11 +86,7 @@ export default function ClipCard({ clip, shotLabel, wide }: ClipCardProps) {
       className={`card p-3.5 ${clip.isBest ? 'ring-2 ring-emerald-500' : ''} ${wide ? 'flex w-72 shrink-0 flex-col' : ''}`}
     >
       <div className="flex items-start gap-2">
-        {/* 缩略图占位（文件本体不入库） */}
-        <div className="flex h-14 w-24 shrink-0 flex-col items-center justify-center rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-800 text-zinc-400">
-          <span className="text-lg">🎬</span>
-          <span className="font-mono text-[10px]">{formatDuration(clip.duration)}</span>
-        </div>
+        <VideoPreview clip={clip} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {clip.isBest && <span title="最优候选">⭐</span>}
