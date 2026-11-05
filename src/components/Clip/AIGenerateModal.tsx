@@ -53,6 +53,7 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
   const shot = shots.find((s) => s.id === shotId) ?? null;
   const latestPrompt = shot ? (byShot(shot.id).slice(-1)[0] ?? null) : null;
   const target = ASPECT_RESOLUTION[projectAspect];
+  const promptText = latestPrompt?.content ?? (shot ? shot.visualContent || shot.description : '');
 
   const run = async () => {
     if (!shot || !project) return;
@@ -60,7 +61,7 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
       showToast('还没配置 AI 生成服务——去「设置」页选服务商、填密钥');
       return;
     }
-    const prompt = latestPrompt?.content ?? shot.visualContent || shot.description;
+    const prompt = promptText;
     setBusy(true);
     setProgress('创建生成记录…');
     try {
@@ -140,7 +141,7 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
         <div>
           <span className="text-sm">将使用的提示词{latestPrompt ? `（v${latestPrompt.version}）` : ''}</span>
           <pre className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-zinc-950 p-3 font-mono text-[11px] leading-relaxed text-emerald-400">
-            {prompt ?? '该分镜还没有提示词——将只用画面描述生成，建议先回「提示词」页生成'}
+            {promptText || '该分镜还没有提示词——将只用画面描述生成，建议先回「提示词」页生成'}
           </pre>
         </div>
 

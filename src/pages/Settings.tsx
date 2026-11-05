@@ -30,7 +30,6 @@ import {
 /** AI 视频生成服务配置卡：选服务商、填密钥、测试连接 */
 function AIServiceCard() {
   const s = useSettingsStore();
-  const showToast = useToastStore((s2) => s2.show);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
