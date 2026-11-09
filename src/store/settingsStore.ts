@@ -9,7 +9,7 @@ export type TransitionMode = '硬切' | '溶解';
 export type QCStrictness = '严格' | '标准' | '宽松';
 
 /** AI 视频生成服务配置 */
-export type AIProviderKind = 'none' | 'fal' | 'custom';
+export type AIProviderKind = 'none' | 'fal' | 'custom' | 'gemini';
 
 interface SettingsData {
   theme: Theme;
@@ -22,7 +22,7 @@ interface SettingsData {
   aiProvider: AIProviderKind; /** 视频生成服务商 */
   aiEndpoint: string; /** 自定义接口完整 POST 地址（fal 固定 queue.fal.run） */
   aiKey: string; /** API 密钥（只存本浏览器） */
-  aiModel: string; /** 模型 id（fal 如 fal-ai/kling-video/v1/standard/text-to-video） */
+  aiModel: string; /** 模型 id（fal 如 fal-ai/kling-video/...，Gemini 如 gemini-omni-1.2-flash） */
 }
 
 interface SettingsState extends SettingsData {

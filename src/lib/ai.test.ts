@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRequest,
+  buildPayload,
   findInJson,
   isAIConfigured,
   pollDone,
+  extractGeminiVideo,
+  base64ToMp4Blob,
+  GEMINI_BASE,
+  GEMINI_DEFAULT_MODEL,
   FAL_DEFAULT_MODEL,
 } from './ai';
 
 const falCfg = { provider: 'fal' as const, endpoint: '', apiKey: 'key-123', model: FAL_DEFAULT_MODEL };
+const geminiCfg = { provider: 'gemini' as const, endpoint: '', apiKey: 'AIza-test', model: GEMINI_DEFAULT_MODEL };
 const customCfg = {
   provider: 'custom' as const,
   endpoint: 'https://my-proxy.example.com/video/generate',
@@ -98,5 +104,65 @@ describe('pollDone 轮询判定', () => {
   it('custom：响应里出现视频地址即完成', () => {
     expect(pollDone({ video_url: 'https://x.com/a.mp4' }, 'custom')).toBe('done');
     expect(pollDone({ progress: 50 }, 'custom')).toBe('pending');
+  });
+});
+
+
+describe('gemini / veo（Interactions API）', () => {
+  it('isAIConfigured：填 Key 即可（模型有默认值）', () => {
+    expect(isAIConfigured(geminiCfg)).toBe(true);
+    expect(isAIConfigured({ ...geminiCfg, apiKey: '' })).toBe(false);
+    expect(isAIConfigured({ ...geminiCfg, model: '' })).toBe(true);
+  });
+
+  it('buildRequest：POST /v1beta/interactions，x-goog-api-key 鉴权（不认 Bearer）', () => {
+    const { url, init } = buildRequest(geminiCfg, {
+      prompt: '雨中分伞，日系动画',
+      aspectRatio: '16:9',
+      durationSec: 10,
+    });
+    expect(url).toBe(`${GEMINI_BASE}/interactions`);
+    expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe('AIza-test');
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+    const body = JSON.parse(init.body as string);
+    expect(body.model).toBe(GEMINI_DEFAULT_MODEL);
+    expect(body.input).toBe('雨中分伞，日系动画');
+    expect(body.background).toBe(true);
+    expect(body.response_format).toEqual({ type: 'video', aspect_ratio: '16:9' });
+  });
+
+  it('buildPayload：9:16 保留，1:1 映射成 16:9（Omni 不支持 1:1）', () => {
+    const p9 = buildPayload(geminiCfg, { prompt: 'x', aspectRatio: '9:16', durationSec: 5 });
+    expect((p9.response_format as Record<string, string>).aspect_ratio).toBe('9:16');
+    const p1 = buildPayload(geminiCfg, { prompt: 'x', aspectRatio: '1:1', durationSec: 5 });
+    expect((p1.response_format as Record<string, string>).aspect_ratio).toBe('16:9');
+  });
+
+  it('pollDone：status=completed → done；error / failed → failed；其余 pending', () => {
+    expect(pollDone({ status: 'completed' }, 'gemini')).toBe('done');
+    expect(pollDone({ status: 'running' }, 'gemini')).toBe('pending');
+    expect(pollDone({ error: { message: 'quota exceeded' } }, 'gemini')).toBe('failed');
+    expect(pollDone({ status: 'failed' }, 'gemini')).toBe('failed');
+  });
+
+  it('extractGeminiVideo：从 steps→content 里找 type=video 的 base64 data / uri', () => {
+    const withData = {
+      steps: [{ type: 'model_output', content: [{ type: 'video', mime_type: 'video/mp4', data: 'AAAA' }] }],
+    };
+    expect(extractGeminiVideo(withData)).toEqual({ data: 'AAAA', uri: undefined });
+    const withUri = {
+      steps: [
+        { type: 'model_output', content: [{ type: 'video', uri: 'https://generativelanguage.googleapis.com/v1beta/files/x:download?alt=media' }] },
+      ],
+    };
+    expect(extractGeminiVideo(withUri)?.uri).toContain('/files/x:download');
+    expect(extractGeminiVideo({ steps: [] })).toBeNull();
+  });
+
+  it('base64ToMp4Blob：解码成 video/mp4 Blob', () => {
+    // 1x1 mp4 无所谓，验证可解码 + MIME
+    const blob = base64ToMp4Blob(btoa('hello'));
+    expect(blob.type).toBe('video/mp4');
+    expect(blob.size).toBe(5);
   });
 });

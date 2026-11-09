@@ -13,7 +13,18 @@ export const MODEL_COST_ESTIMATE: Record<string, number> = {
   未记录: 0,
 };
 
+/** Gemini Omni 视频官方单价（USD/秒，720p）：1.2 为 $0.07/s，1.1 为 $0.10/s（约 ¥7.2 汇率折算） */
+export const GEMINI_VIDEO_COST_PER_SEC_USD: Record<string, number> = {
+  'gemini-omni-1.2-flash': 0.07,
+  'gemini-omni-1.1-flash': 0.1,
+};
+
 export function modelCostPerClip(model: string, durationSec = 10): number {
+  // Gemini Omni 按秒计价（720p 官方价 × 时长 × 汇率）
+  const perSecUsd = GEMINI_VIDEO_COST_PER_SEC_USD[model];
+  if (perSecUsd != null && durationSec > 0) {
+    return Math.round(perSecUsd * durationSec * 7.2 * 100) / 100;
+  }
   const per10s = MODEL_COST_ESTIMATE[model] ?? 0.3;
   // 按实际时长折算（默认按 10 秒一条的参考价），时长未知也按整条计
   return Math.round(per10s * (durationSec > 0 ? durationSec / 10 : 1) * 100) / 100;

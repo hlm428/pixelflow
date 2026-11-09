@@ -20,6 +20,7 @@ import { useTemplateStore } from '../store/templateStore';
 import { useProjectStore } from '../store/projectStore';
 import { reseedDemoProjects } from '../lib/seed';
 import { APP_VERSION } from '../lib/version';
+import { GEMINI_MODEL_OPTIONS } from '../lib/ai';
 import {
   ASPECT_RATIOS,
   PROJECT_STYLES,
@@ -64,18 +65,36 @@ function AIServiceCard() {
           >
             <option value="none">未配置（手动上传模式）</option>
             <option value="fal">fal.ai（推荐，浏览器直连，有可灵/海螺等模型）</option>
+            <option value="gemini">Gemini / Veo（Google，浏览器直连，Omni 视频）</option>
             <option value="custom">自定义接口（自建代理 / OpenAI 兼容聚合站）</option>
           </select>
         </label>
-        <label className="block text-sm">
-          <span>模型 id</span>
-          <input
-            className="input mt-1 font-mono"
-            value={s.aiModel}
-            onChange={(e) => set({ aiModel: e.target.value })}
-            placeholder={s.aiProvider === 'fal' ? 'fal-ai/kling-video/v1/standard/text-to-video' : '如 muse-10s'}
-          />
-        </label>
+        {s.aiProvider === 'gemini' ? (
+          <label className="block text-sm">
+            <span>视频模型</span>
+            <select
+              className="input mt-1"
+              value={s.aiModel || 'gemini-omni-1.2-flash'}
+              onChange={(e) => set({ aiModel: e.target.value })}
+            >
+              {GEMINI_MODEL_OPTIONS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="block text-sm">
+            <span>模型 id</span>
+            <input
+              className="input mt-1 font-mono"
+              value={s.aiModel}
+              onChange={(e) => set({ aiModel: e.target.value })}
+              placeholder={s.aiProvider === 'fal' ? 'fal-ai/kling-video/v1/standard/text-to-video' : '如 muse-10s'}
+            />
+          </label>
+        )}
         {s.aiProvider === 'custom' && (
           <label className="block text-sm sm:col-span-2">
             <span>接口地址（完整 POST 地址，返回 JSON 里要能找到视频地址或任务 id）</span>
@@ -94,22 +113,40 @@ function AIServiceCard() {
             type="password"
             value={s.aiKey}
             onChange={(e) => set({ aiKey: e.target.value })}
-            placeholder={s.aiProvider === 'fal' ? 'fal key：$id:$secret 格式' : 'Bearer 密钥'}
+            placeholder={
+              s.aiProvider === 'fal'
+                ? 'fal key：$id:$secret 格式'
+                : s.aiProvider === 'gemini'
+                  ? 'Gemini API Key（AIza… 开头）'
+                  : 'Bearer 密钥'
+            }
           />
         </label>
       </div>
 
+        {s.aiProvider === 'gemini' && (
+          <div className="space-y-1.5 rounded-lg bg-indigo-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-zinc-500 sm:col-span-2 dark:bg-indigo-500/10">
+            <p>· 鉴权用 <code className="font-mono">x-goog-api-key</code> 头（Gemini 不认 Bearer），浏览器直连 generativelanguage.googleapis.com，流程为提交 → 轮询 → 下载存浏览器。</p>
+            <p>· 画幅跟项目默认画幅联动（16:9 / 9:16，1:1 按 16:9 生成）；出片时长由模型决定，<b>最长 15 秒</b>、带原生音频，无手动时长参数。</p>
+            <p className="text-amber-600 dark:text-amber-400">· ⚠️ 视频生成<b>不在免费层</b>：Google Cloud 项目（如「Gemini Project flow」）需先<b>开通计费（paid tier）</b>，否则点生成会报错。720p 约 $0.07/秒（≈¥0.5/秒）。</p>
+            <p>· 旧 Veo 模型（veo-3.0-generate-001 / veo-2.0-generate-001）已于 2026-06-30 关停，接口换成上面的 Omni 模型——选已关停的模型 id 会报 404。</p>
+          </div>
+        )}
       <div className="flex flex-wrap items-center gap-2">
         <button className="btn-outline" onClick={() => void runTest()} disabled={testing}>
           {testing ? '测试中…' : '🔌 测试连接'}
         </button>
         <a
           className="text-xs text-indigo-500 hover:underline"
-          href={s.aiProvider === 'fal' ? 'https://fal.ai/dashboard/keys' : '#'}
+          href={s.aiProvider === 'fal' ? 'https://fal.ai/dashboard/keys' : s.aiProvider === 'gemini' ? 'https://aistudio.google.com/apikey' : '#'}
           target="_blank"
           rel="noreferrer"
         >
-          {s.aiProvider === 'fal' ? '去 fal.ai 拿 API Key ↗（每条约 ¥2–5，先充值）' : ''}
+          {s.aiProvider === 'fal'
+            ? '去 fal.ai 拿 API Key ↗（每条约 ¥2–5，先充值）'
+            : s.aiProvider === 'gemini'
+              ? '去 aistudio.google.com/apikey 拿 Gemini Key ↗（项目需开通计费）'
+              : ''}
         </a>
       </div>
       {testResult && (

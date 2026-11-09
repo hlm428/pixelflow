@@ -5,7 +5,7 @@ import { usePromptStore } from '../../store/promptStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToastStore } from '../../store/toastStore';
-import { generateVideo, isAIConfigured, type AIGenerateConfig } from '../../lib/ai';
+import { generateVideo, isAIConfigured, GEMINI_DEFAULT_MODEL, type AIGenerateConfig } from '../../lib/ai';
 import { estimateClipCost } from '../../lib/dashboard';
 import { ASPECT_RESOLUTION, type AspectRatio } from '../../types/project';
 import type { Shot } from '../../types/shot';
@@ -68,7 +68,13 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
     setBusy(true);
     setProgress('创建生成记录…');
     try {
-    const clip = await startAI(project.id, shot.id, cfg.provider === 'fal' ? cfg.model || 'fal' : '自定义接口', shot.promptVersion);
+    const modelLabel =
+        cfg.provider === 'fal'
+          ? cfg.model || 'fal'
+          : cfg.provider === 'gemini'
+            ? cfg.model || GEMINI_DEFAULT_MODEL
+            : '自定义接口';
+      const clip = await startAI(project.id, shot.id, modelLabel, shot.promptVersion);
     const startedAt = Date.now();
     const result = await generateVideo(cfg, { prompt, aspectRatio: projectAspect, durationSec: project.shotLength ?? 10 }, setProgress);
       let meta = { duration: project.shotLength ?? 10, width: target.width, height: target.height };
@@ -126,7 +132,7 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
       <div className="space-y-3">
         {isAIConfigured(cfg) ? (
           <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
-            已配置：{cfg.provider === 'fal' ? `fal.ai · ${cfg.model || '默认模型'}` : '自定义接口'}
+            已配置：{cfg.provider === 'fal' ? `fal.ai · ${cfg.model || '默认模型'}` : cfg.provider === 'gemini' ? `Gemini · ${cfg.model || GEMINI_DEFAULT_MODEL}` : '自定义接口'}
             {cfg.model && cfg.provider !== 'fal' ? ` · ${cfg.model}` : ''}。密钥只存在你的浏览器。
           </p>
         ) : (
