@@ -32,8 +32,8 @@ interface ClipState {
   markBest: (id: string) => Promise<void>;
   /** AI 生成：先建一条「生成中」占位记录 */
   startAI: (projectId: string, shotId: string, model: string, promptVersion: number) => Promise<Clip>;
-  /** AI 生成成功：填视频信息 + 自动打分 → 待质检 */
-  completeAI: (id: string, data: { fileName: string; duration: number; width: number; height: number; fileSize: number; blob?: Blob; url?: string }, target: { width: number; height: number }) => Promise<void>;
+  /** AI 生成成功：填视频信息 + 耗时/花费 + 自动打分 → 待质检 */
+  completeAI: (id: string, data: { fileName: string; duration: number; width: number; height: number; fileSize: number; blob?: Blob; url?: string; genMs?: number; cost?: number }, target: { width: number; height: number }) => Promise<void>;
   /** AI 生成失败：记原因（不计入重试次数，手动重试另算） */
   failAI: (id: string, note: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -164,6 +164,8 @@ export const useClipStore = create<ClipState>()((set, get) => ({
       ),
       videoBlob: data.blob,
       sourceUrl: data.url,
+      genMs: data.genMs,
+      cost: data.cost,
     });
   },
 

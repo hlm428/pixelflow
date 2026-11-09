@@ -7,7 +7,7 @@ import { useShotStore } from '../store/shotStore';
 import { usePromptStore } from '../store/promptStore';
 import { charactersRepo, clipsRepo, qcReportsRepo, promptsRepo, dubbingsRepo } from '../lib/db';
 import { takeProjectSnapshot, restoreProjectSnapshot, type ProjectSnapshot } from '../lib/backup';
-import { planShotCount, splitStoryToShots, splitStoryUnits, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
+import { autoShotLength, planShotCount, splitStoryToShots, splitStoryUnits, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
 import { SHOT_STATUSES, type Shot, type ShotStatus } from '../types/shot';
 import type { Clip } from '../types/clip';
 import type { QCReport } from '../types/qc';
@@ -148,9 +148,20 @@ export default function Shots() {
     showToast('已撤销，恢复到拆分前');
   };
 
-  const handleShotLengthChange = (len: number) => {
+  const handleShotLengthChange = (len: number, note?: string) => {
     void updateProject(project.id, { shotLength: len });
-    showToast(`单镜时长改为 ${len} 秒——对下一次「拆分镜」生效`);
+    showToast(note ?? `单镜时长改为 ${len} 秒——对下一次「拆分镜」生效`);
+  };
+
+  const handleAutoShotLength = () => {
+    const len = autoShotLength(story, project.targetDuration);
+    const units = splitStoryUnits(story).length;
+    handleShotLengthChange(
+      len,
+      units > 0
+        ? `已按故事自动算出单镜 ${len} 秒（${units} 个情节 × ${len}s ≈ ${units * len}s，目标 ${project.targetDuration}s）`
+        : `还没检测到情节，单镜时长保持默认 ${len} 秒`,
+    );
   };
 
   const handleSplit = () => {
@@ -202,6 +213,14 @@ export default function Shots() {
               <option value={10}>10 秒</option>
               <option value={5}>5 秒</option>
             </select>
+            <button
+              type="button"
+              className="btn-ghost px-2 py-1 text-xs"
+              title="按情节数自动算：情节数 × 单镜时长 ≈ 目标总时长"
+              onClick={handleAutoShotLength}
+            >
+              按故事自动算
+            </button>
           </label>
           <div className="flex gap-2">
             <button

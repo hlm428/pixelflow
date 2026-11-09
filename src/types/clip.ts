@@ -29,5 +29,7 @@ export interface Clip {
   isBest: boolean; /** 该分镜候选中的最优 */
   videoBlob?: Blob; /** AI 生成并下载的视频本体（存 IndexedDB，可跨会话预览） */
   sourceUrl?: string; /** 生成服务返回的视频地址 */
+  genMs?: number; /** AI 生成实际耗时（毫秒，提交→出片全程实测） */
+  cost?: number; /** 本次生成的估算花费（元，按模型单价 × 时长折算） */
   createdAt: number;
 }

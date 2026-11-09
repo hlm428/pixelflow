@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMusicStore } from '../../store/musicStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useSettingsStore } from '../../store/settingsStore';
@@ -22,7 +22,41 @@ export default function MusicLibrary() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Music | null>(null);
   const [deleting, setDeleting] = useState<Music | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const [kw, setKw] = useState('');
+
+  const stopPlayback = () => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setPlayingId(null);
+  };
+
+  const togglePlay = (m: Music) => {
+    if (!m.audioBlob) return;
+    if (playingId === m.id) {
+      stopPlayback();
+      return;
+    }
+    stopPlayback();
+    const url = URL.createObjectURL(m.audioBlob);
+    const el = new Audio(url);
+    el.onended = stopPlayback;
+    el.play().catch(() => {
+      stopPlayback();
+      showToast('播放失败——浏览器拦截了自动播放，再点一次试试');
+    });
+    audioRef.current = el;
+    objectUrlRef.current = url;
+    setPlayingId(m.id);
+  };
+
+  useEffect(() => () => stopPlayback(), []);
 
   const project = projects.find((p) => p.id === currentProjectId) ?? null;
 
@@ -85,7 +119,7 @@ export default function MusicLibrary() {
 
       {visible.length === 0 ? (
         <p className="card p-8 text-center text-sm text-zinc-500">
-          音乐库是空的。把常用 BGM 登记进来，记好授权信息，发布不踩坑。
+          音乐库是空的。首次启动会自动带上 4 首内置免授权 BGM；也可以点「＋ 新增音乐」上传自己的音频（存本地浏览器），记好授权信息，发布不踩坑。
         </p>
       ) : (
         <div className="card overflow-x-auto p-0">
@@ -121,6 +155,15 @@ export default function MusicLibrary() {
                   <td className="px-3 py-2.5 text-xs text-zinc-500">{m.license}</td>
                   <td className="px-3 py-2.5">
                     <span className="flex gap-1">
+                      {m.audioBlob && (
+                        <button
+                          className="btn-ghost px-2 py-1 text-xs"
+                          title={playingId === m.id ? '停止试听' : '试听'}
+                          onClick={() => togglePlay(m)}
+                        >
+                          {playingId === m.id ? '⏹️' : '▶️'}
+                        </button>
+                      )}
                       <button
                         className="btn-ghost px-2 py-1 text-xs"
                         onClick={() => {

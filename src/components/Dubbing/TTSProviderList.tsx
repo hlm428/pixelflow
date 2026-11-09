@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { useProviderStore } from '../../store/providerStore';
 import { useToastStore } from '../../store/toastStore';
 import { daysUntil } from '../../lib/utils';
+import { speakSample, stopSample } from '../../lib/audio';
 import type { TTSProvider } from '../../types/dubbing';
 
 /** 供应商卡片到期配色：已过期红、7 天内黄 */
@@ -27,6 +28,7 @@ export default function TTSProviderList() {
   const [deadline, setDeadline] = useState('');
 
   const openEdit = (p: TTSProvider) => {
+    stopSample();
     setEditing(p);
     setFreeQuota(p.freeQuota);
     setPrice(p.price);
@@ -87,9 +89,26 @@ export default function TTSProviderList() {
                   <span className="text-[10px] text-zinc-400">{p.needsV1 ? '带 /v1' : '无 /v1'}</span>
                 </td>
                 <td className="px-3 py-2.5">
-                  <button className="btn-ghost px-2 py-1 text-xs" onClick={() => openEdit(p)}>
-                    编辑
-                  </button>
+                  <span className="flex gap-1">
+                    <button
+                      className="btn-ghost px-2 py-1 text-xs"
+                      title="浏览器本机合成试听（近似音色），准确音色点供应商名去官网 Demo"
+                      onClick={() => {
+                        const isEn = /英文|英语|english/i.test(`${p.bestFor}${p.notes}`);
+                        const ok = speakSample(isEn ? 'en' : 'zh');
+                        showToast(
+                          ok
+                            ? `🔊 正在试听「${p.name}」的本机近似音色${isEn ? '（英文）' : '（中文）'}——准确音色请点供应商名去官网`
+                            : '这个浏览器不支持语音合成，请点供应商名去官网试听',
+                        );
+                      }}
+                    >
+                      🔊 试听
+                    </button>
+                    <button className="btn-ghost px-2 py-1 text-xs" onClick={() => openEdit(p)}>
+                      编辑
+                    </button>
+                  </span>
                 </td>
               </tr>
             );
@@ -98,7 +117,9 @@ export default function TTSProviderList() {
       </table>
 
       <div className="flex items-center gap-3 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800/60">
-        <span className="text-[11px] text-zinc-400">额度 / 价格 / 截止日期以官方页面为准；改动存本地。</span>
+        <span className="text-[11px] text-zinc-400">
+          额度 / 价格 / 截止日期以官方页面为准；改动存本地。「🔊 试听」用浏览器本机语音合成近似该家的语种与语气，准确音色以官网 Demo 为准；再点一次或切页会自动停止。
+        </span>
         <button
           className="btn-ghost ml-auto text-xs"
           onClick={() => {

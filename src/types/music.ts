@@ -6,4 +6,5 @@ export interface Music {
   license: string; /** 授权信息 */
   usedIn: string[]; /** 用在哪些项目（项目名） */
   tags: string[];
+  audioBlob?: Blob; /** 音频本体（存 IndexedDB，可直接试听） */
 }

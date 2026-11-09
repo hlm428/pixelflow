@@ -13,8 +13,26 @@ export const MODEL_COST_ESTIMATE: Record<string, number> = {
   未记录: 0,
 };
 
-export function modelCostPerClip(model: string): number {
-  return MODEL_COST_ESTIMATE[model] ?? 0.3;
+export function modelCostPerClip(model: string, durationSec = 10): number {
+  const per10s = MODEL_COST_ESTIMATE[model] ?? 0.3;
+  // 按实际时长折算（默认按 10 秒一条的参考价），时长未知也按整条计
+  return Math.round(per10s * (durationSec > 0 ? durationSec / 10 : 1) * 100) / 100;
+}
+
+/** 累计生成耗时（毫秒，只有实测过 genMs 的片段参与） */
+export function sumGenMs(clips: Clip[]): number {
+  return clips.reduce((sum, c) => sum + (c.genMs ?? 0), 0);
+}
+
+/** 累计生成花费（元）：优先用生成时记下的估算，老数据按模型单价补算 */
+export function sumCost(clips: Clip[]): number {
+  const total = clips.reduce((sum, c) => sum + (c.cost ?? modelCostPerClip(c.model, c.duration)), 0);
+  return Math.round(total * 100) / 100;
+}
+
+/** 生成成功时记录的估算花费（元，按模型单价 × 实际时长） */
+export function estimateClipCost(model: string, durationSec: number): number {
+  return modelCostPerClip(model, durationSec);
 }
 
 export interface ModelCostRow {
@@ -37,9 +55,12 @@ export function computeModelCosts(clips: Clip[]): ModelCostRow[] {
     .sort((a, b) => b.count - a.count);
 }
 
-/** 最近 N 天每天生成的片段数（0 = 没生成） */
-export function dailyClipCounts(clips: Clip[], days = 30): Array<{ date: string; count: number }> {
-  const result: Array<{ date: string; count: number }> = [];
+/** 最近 N 天每天生成的片段数与耗时/花费（折线图数据源，0 = 没生成） */
+export function dailyClipCounts(
+  clips: Clip[],
+  days = 30,
+): Array<{ date: string; count: number; cost: number }> {
+  const result: Array<{ date: string; count: number; cost: number }> = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const counts = new Map<string, number>();
@@ -49,10 +70,17 @@ export function dailyClipCounts(clips: Clip[], days = 30): Array<{ date: string;
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
+  const costs = new Map<string, number>();
+  for (const c of clips) {
+    const d = new Date(c.createdAt);
+    d.setHours(0, 0, 0, 0);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    costs.set(key, (costs.get(key) ?? 0) + (c.cost ?? 0));
+  }
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * 86_400_000);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    result.push({ date: key, count: counts.get(key) ?? 0 });
+    result.push({ date: key, count: counts.get(key) ?? 0, cost: Math.round((costs.get(key) ?? 0) * 100) / 100 });
   }
   return result;
 }

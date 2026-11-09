@@ -43,6 +43,20 @@ export function planShotCount(targetDuration: number, shotLength = SHOT_LENGTH_D
   return Math.max(1, Math.round(targetDuration / shotLength));
 }
 
+/**
+ * 按故事自动算单镜时长：情节数 × 单镜时长 ≈ 目标时长。
+ * 结果贴近 5 或 10 就吸附过去，其余收在 4–12 秒；拆不出情节时回退默认 10 秒。
+ */
+export function autoShotLength(story: string, targetDuration: number): number {
+  const units = splitStoryUnits(story).length;
+  if (units <= 0 || targetDuration <= 0) return SHOT_LENGTH_DEFAULT;
+  const raw = targetDuration / units;
+  for (const preset of [5, 10]) {
+    if (Math.abs(raw - preset) <= 1.25) return preset;
+  }
+  return Math.min(12, Math.max(4, Math.round(raw)));
+}
+
 /** 重新按顺序编号并重算时间点：index 从 1 起，startTime = (index-1) × 单镜时长 */
 export function recalcShots(shots: Shot[], shotLength = SHOT_LENGTH_DEFAULT): Shot[] {
   return shots.map((s, i) => ({ ...s, index: i + 1, startTime: i * shotLength }));

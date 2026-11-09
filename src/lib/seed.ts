@@ -1,10 +1,14 @@
-import { projectsRepo, shotsRepo, charactersRepo, promptsRepo, templatesRepo, clipsRepo, qcReportsRepo, dubbingsRepo } from './db';
+import { projectsRepo, shotsRepo, charactersRepo, promptsRepo, templatesRepo, clipsRepo, qcReportsRepo, dubbingsRepo, musicsRepo } from './db';
 import { buildSeedBundle } from '../data/seedProjects';
 import { SEED_TEMPLATES } from '../data/templates';
+import { buildBuiltinMusics } from './bgm';
 
 /** 种子数据版本：版本变化时自动把同名示例项目重灌成新格式（用户自建项目不动） */
 const SEED_FLAG = 'pixelflow-seeded';
-const SEED_VERSION = '4';
+const SEED_VERSION = '5';
+
+/** 历史版本里用过后来改掉的示例项目名：重灌时一并清掉，避免改名后旧名字残留 */
+const LEGACY_SEED_NAMES = ['重生之我在月见公寓当房东'];
 
 /** 首次启动或种子版本升级：灌入/重灌 5 个示例项目 + 模板种子 */
 export async function seedIfNeeded(): Promise<void> {
@@ -26,6 +30,11 @@ export async function seedIfNeeded(): Promise<void> {
 
   if (existingTemplates.length === 0) {
     await templatesRepo.saveMany(SEED_TEMPLATES);
+  }
+
+  // 音乐库为空时灌入内置 BGM（程序化生成的免授权曲子）
+  if ((await musicsRepo.count()) === 0) {
+    await musicsRepo.saveMany(buildBuiltinMusics());
   }
 
   if (typeof localStorage !== 'undefined') {
@@ -62,13 +71,13 @@ async function cascadeDeleteProject(projectId: string): Promise<void> {
   ]);
 }
 
-/** 恢复示例数据：同名示例项目整个删掉重灌（用户自建项目不受影响） */
+/** 恢复示例数据：同名（含历史旧名）示例项目整个删掉重灌（用户自建项目不受影响） */
 export async function reseedDemoProjects(): Promise<number> {
   const bundle = buildSeedBundle();
   const existing = await projectsRepo.list();
-  for (const seedProject of bundle.projects) {
-    const match = existing.find((p) => p.name === seedProject.name);
-    if (match) await cascadeDeleteProject(match.id);
+  const seedNames = [...bundle.projects.map((p) => p.name), ...LEGACY_SEED_NAMES];
+  for (const p of existing) {
+    if (seedNames.includes(p.name)) await cascadeDeleteProject(p.id);
   }
   await insertSeedBundle();
   return bundle.projects.length;

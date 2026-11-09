@@ -6,6 +6,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToastStore } from '../../store/toastStore';
 import { generateVideo, isAIConfigured, type AIGenerateConfig } from '../../lib/ai';
+import { estimateClipCost } from '../../lib/dashboard';
 import { ASPECT_RESOLUTION, type AspectRatio } from '../../types/project';
 import type { Shot } from '../../types/shot';
 
@@ -67,8 +68,9 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
     setBusy(true);
     setProgress('创建生成记录…');
     try {
-      const clip = await startAI(project.id, shot.id, cfg.provider === 'fal' ? cfg.model || 'fal' : '自定义接口', shot.promptVersion);
-      const result = await generateVideo(cfg, { prompt, aspectRatio: projectAspect, durationSec: project.shotLength ?? 10 }, setProgress);
+    const clip = await startAI(project.id, shot.id, cfg.provider === 'fal' ? cfg.model || 'fal' : '自定义接口', shot.promptVersion);
+    const startedAt = Date.now();
+    const result = await generateVideo(cfg, { prompt, aspectRatio: projectAspect, durationSec: project.shotLength ?? 10 }, setProgress);
       let meta = { duration: project.shotLength ?? 10, width: target.width, height: target.height };
       let fileSize = 0;
       const fileName = clip.fileName;
@@ -93,12 +95,19 @@ export default function AIGenerateModal({ open, onClose, shots, defaultShotId, p
           URL.revokeObjectURL(objectUrl);
         }
       }
+      const genMs = Date.now() - startedAt;
+      const cost = estimateClipCost(clip.model, meta.duration);
       await completeAI(
         clip.id,
-        { fileName, duration: meta.duration, width: meta.width, height: meta.height, fileSize, blob: result.blob, url: result.url },
+        { fileName, duration: meta.duration, width: meta.width, height: meta.height, fileSize, blob: result.blob, url: result.url, genMs, cost },
         target,
       );
-      showToast(`✅ 生成完成，已入库待质检${result.blob ? '（视频已存本地，可直接预览）' : '（仅存外链，可用「上传」补本地文件）'}`);
+      const spent = genMs > 0 ? `${Math.floor(genMs / 60_000)}分${Math.round((genMs % 60_000) / 1000)}秒` : '—';
+      showToast(
+        `✅ 生成完成，已入库待质检（本次耗时 ${spent}，估算花费 ¥${cost}）${
+          result.blob ? '，视频已存本地可直接预览' : '，仅存外链可用「上传」补本地文件'
+        }`,
+      );
       onClose();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
