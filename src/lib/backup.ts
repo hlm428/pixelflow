@@ -62,3 +62,40 @@ export async function restoreProjectSnapshot(snapshot: ProjectSnapshot): Promise
     dubbingsRepo.saveMany(snapshot.dubbings),
   ]);
 }
+
+const SPLIT_BACKUP_KEY = 'pixelflow-split-backup';
+
+/** 拆分前快照持久化：剥离视频 Blob 后存 localStorage，导航离开再回来仍可撤销 */
+export function saveSplitBackup(projectId: string, snapshot: ProjectSnapshot): void {
+  try {
+    const slim: ProjectSnapshot = {
+      ...snapshot,
+      clips: snapshot.clips.map(({ videoBlob: _drop, ...rest }) => rest),
+    };
+    localStorage.setItem(SPLIT_BACKUP_KEY, JSON.stringify({ projectId, snapshot: slim }));
+  } catch {
+    // 存不下（超限 / 隐私模式）就退化为仅当次页面内的撤销
+  }
+}
+
+/** 读回当前项目的拆分备份（项目不匹配返回 null） */
+export function loadSplitBackup(projectId: string): ProjectSnapshot | null {
+  try {
+    const raw = localStorage.getItem(SPLIT_BACKUP_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { projectId: string; snapshot: ProjectSnapshot };
+    if (parsed.projectId !== projectId || !parsed.snapshot?.shots?.length) return null;
+    return parsed.snapshot;
+  } catch {
+    return null;
+  }
+}
+
+/** 撤销完成或用户放弃后清掉备份 */
+export function clearSplitBackup(): void {
+  try {
+    localStorage.removeItem(SPLIT_BACKUP_KEY);
+  } catch {
+    /* ignore */
+  }
+}

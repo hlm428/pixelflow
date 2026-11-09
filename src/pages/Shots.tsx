@@ -6,7 +6,7 @@ import { useToastStore } from '../store/toastStore';
 import { useShotStore } from '../store/shotStore';
 import { usePromptStore } from '../store/promptStore';
 import { charactersRepo, clipsRepo, qcReportsRepo, promptsRepo, dubbingsRepo } from '../lib/db';
-import { takeProjectSnapshot, restoreProjectSnapshot, type ProjectSnapshot } from '../lib/backup';
+import { takeProjectSnapshot, restoreProjectSnapshot, saveSplitBackup, loadSplitBackup, clearSplitBackup, type ProjectSnapshot } from '../lib/backup';
 import { autoShotLength, planShotCount, splitStoryToShots, splitStoryUnits, SHOT_LENGTH_DEFAULT, SHOT_STATUS_STYLE } from '../lib/shot';
 import { SHOT_STATUSES, type Shot, type ShotStatus } from '../types/shot';
 import type { Clip } from '../types/clip';
@@ -68,6 +68,11 @@ export default function Shots() {
     // 仅在切换项目或故事文本变化时同步输入框
   }, [project?.id, project?.oneLineStory]);
 
+  // 上次拆分的备份从 localStorage 恢复——导航去别的页再回来，撤销入口不丢
+  useEffect(() => {
+    setBackup(currentProjectId ? loadSplitBackup(currentProjectId) : null);
+  }, [currentProjectId]);
+
   const clipCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of clips) m.set(c.shotId, (m.get(c.shotId) ?? 0) + 1);
@@ -108,15 +113,27 @@ export default function Shots() {
     }
     try {
       const drafts = splitStoryToShots(text, project.targetDuration, shotLen);
-      // 拆分前自动备份（可撤销）
-      const backupSnap = shots.length > 0 ? await takeProjectSnapshot(project.id) : null;
+      // 拆分前旧分镜（含旧的角色卡关联，供拆分后继承）
+      const prevShots = [...shots];
+      // 拆分前自动备份（可撤销；持久化到 localStorage，导航离开再回来也能撤）
+      const backupSnap = prevShots.length > 0 ? await takeProjectSnapshot(project.id) : null;
+      if (backupSnap) saveSplitBackup(project.id, backupSnap);
       await replaceAllWithDrafts(project.id, drafts, shotLen);
-      // 自动关联角色卡：分镜文本里出现角色名就挂上
+      // 自动关联角色卡：分镜文本里出现角色名就挂上；
+      // 名字没写进文本时（一句话故事常省主语），按位置从旧分镜继承关联，角色卡计数不丢
       const cards = await charactersRepo.listByProject(project.id);
       const created = useShotStore.getState().shots;
-      for (const s of created) {
-        const textAll = `${s.description}${s.visualContent}`;
-        const ids = cards.filter((c) => c.name && textAll.includes(c.name)).map((c) => c.id);
+      const matchedIds = (desc: string, visual: string) =>
+        cards.filter((c) => c.name && `${desc}${visual}`.includes(c.name)).map((c) => c.id);
+      for (const [i, s] of created.entries()) {
+        let ids = matchedIds(s.description, s.visualContent);
+        if (ids.length === 0 && prevShots.length > 0) {
+          const j = Math.min(
+            prevShots.length - 1,
+            Math.max(0, Math.round(((i + 0.5) * prevShots.length) / created.length) - 1),
+          );
+          ids = (prevShots[j]?.characterIds ?? []).filter((id) => cards.some((c) => c.id === id));
+        }
         if (ids.length > 0) await useShotStore.getState().update(s.id, { characterIds: ids });
       }
       // 自动生成 v1 提示词（角色卡原文 + 场景 + 风格 + 运镜 + 接力句）
@@ -144,6 +161,7 @@ export default function Shots() {
     if (!backup) return;
     await restoreProjectSnapshot(backup);
     if (currentProjectId) await loadShots(currentProjectId);
+    clearSplitBackup();
     setBackup(null);
     showToast('已撤销，恢复到拆分前');
   };
@@ -262,7 +280,13 @@ export default function Shots() {
           <button className="btn-outline ml-auto text-xs" onClick={() => void handleRestoreBackup()}>
             ↩️ 撤销本次拆分
           </button>
-          <button className="btn-ghost text-xs" onClick={() => setBackup(null)}>
+          <button
+            className="btn-ghost text-xs"
+            onClick={() => {
+              clearSplitBackup();
+              setBackup(null);
+            }}
+          >
             放弃备份
           </button>
         </div>
