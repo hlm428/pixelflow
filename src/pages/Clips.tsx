@@ -9,6 +9,8 @@ import ClipList from '../components/Clip/ClipList';
 import ClipCompare from '../components/Clip/ClipCompare';
 import ClipUpload from '../components/Clip/ClipUpload';
 import AIGenerateModal from '../components/Clip/AIGenerateModal';
+import QueuePanel from '../components/Shot/QueuePanel';
+import { useQueueStore } from '../store/queueStore';
 import { isAIConfigured } from '../lib/ai';
 import { useSettingsStore as useSettingsStoreRoot } from '../store/settingsStore';
 
@@ -25,6 +27,7 @@ export default function Clips() {
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const aiCfg = {
     provider: useSettingsStoreRoot((s) => s.aiProvider),
     endpoint: useSettingsStoreRoot((s) => s.aiEndpoint),
@@ -167,6 +170,14 @@ export default function Clips() {
             🤖 AI 生成
           </button>
           <button
+            className="btn-outline"
+            onClick={() => setQueueOpen(true)}
+            disabled={shots.length === 0}
+            title="按分镜顺序逐条调用当前服务商，失败可重试；队列进度存本地，刷新不丢"
+          >
+            ⚡ 一键生成全部
+          </button>
+          <button
             className="btn-primary"
             onClick={() => setUploadOpen(true)}
             disabled={shots.length === 0}
@@ -210,6 +221,13 @@ export default function Clips() {
         shots={shots}
         defaultShotId={filterShot !== '全部' ? filterShot : null}
         projectAspect={project.aspectRatio}
+      />
+      <QueuePanel
+        open={queueOpen}
+        onClose={() => setQueueOpen(false)}
+        buildQueue={() => {
+          useQueueStore.getState().setQueue(project.id, shots.map((s2) => s2.id));
+        }}
       />
     </div>
   );

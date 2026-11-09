@@ -16,6 +16,8 @@ import ShotTimeline from '../components/Shot/ShotTimeline';
 import ShotForm from '../components/Shot/ShotForm';
 import ShotDetail from '../components/Shot/ShotDetail';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import QueuePanel from '../components/Shot/QueuePanel';
+import { useQueueStore } from '../store/queueStore';
 
 /** 故事与分镜页：一句话拆分镜 + 时间轴 + 可拖拽分镜网格 + 批量操作 */
 export default function Shots() {
@@ -45,6 +47,7 @@ export default function Shots() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Shot | null>(null);
   const [confirmSplit, setConfirmSplit] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [batchStatusValue, setBatchStatusValue] = useState<ShotStatus>('待生成');
 
   useEffect(() => {
@@ -253,6 +256,13 @@ export default function Shots() {
             <button className="btn-primary" onClick={handleSplit}>
               ✂️ 拆分镜
             </button>
+            <button
+              className="btn-outline"
+              onClick={() => setQueueOpen(true)}
+              title="按分镜顺序逐条调用当前服务商，失败可重试；队列进度存本地，刷新不丢"
+            >
+              ⚡ 一键生成全部
+            </button>
           </div>
         </div>
         <textarea
@@ -373,6 +383,14 @@ export default function Shots() {
         onClose={() => setFormOpen(false)}
       />
       <ShotDetail shot={detailShot} onClose={() => setDetailId(null)} />
+      <QueuePanel
+        open={queueOpen}
+        onClose={() => setQueueOpen(false)}
+        buildQueue={() => {
+          useQueueStore.getState().setQueue(project.id, shots.map((s2) => s2.id));
+        }}
+      />
+
       <ConfirmDialog
         open={deleting !== null}
         danger
